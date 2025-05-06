@@ -3,7 +3,7 @@ from routers.rooms import router as rooms_router
 import uvicorn
 
 app = FastAPI(title="LayerMinder API v1.0")
-app.include_router(rooms_router, prefix="/api/rooms")
+app.include_router(rooms_router, prefix="/api/v1/rooms")
 
 
 if __name__ == "__main__":
