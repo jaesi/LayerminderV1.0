@@ -7,7 +7,9 @@ from firebase_admin import credentials, firestore
 cred = credentials.Certificate("layerminderBE/serviceAccountKey.json")
 
 # 2) 앱 초기화
-firebase_admin.initialize_app(cred)
+if not firebase_admin._apps:
+    # Firebase Admin SDK 초기화
+    firebase_admin.initialize_app(cred)
 
 # 3) Firestore 클라이언트 생성
 db = firestore.client()
