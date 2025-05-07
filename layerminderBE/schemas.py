@@ -10,3 +10,11 @@ class Room(BaseModel):
 
 class RoomCreate(BaseModel):
     title: str
+
+class UserCreate(BaseModel):
+    email: str
+    password: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer" # 기본값 

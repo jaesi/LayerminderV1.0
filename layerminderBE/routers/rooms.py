@@ -34,3 +34,25 @@ async def list_rooms():
         data = doc.to_dict()
         rooms.append(Room(id=doc.id, **data))
     return rooms
+
+# 방 정보 수정
+@router.patch("/{room_id}", response_model=Room) # 엔드포인트 반환할 JSON 검증
+async def update_room(room_id: str, room: RoomCreate):
+    doc_ref = db.collection("rooms").document(room_id)
+    if not doc_ref.get().exists:
+        raise HTTPException(404, "Room not found")
+    doc_ref.update({
+        "title": room.title,
+        "update_time": firestore.SERVER_TIMESTAMP
+    })
+    data = doc_ref.get().to_dict()
+    return Room(id=room_id, **data)
+
+# 방 정보 삭제
+@router.delete("/{room_id}", status_code=204)
+async def delete_room(room_id: str):
+    doc_ref = db.collection("rooms").document(room_id) # rooms 컬렉션 내 ID가 'room_id'인 문서 참조
+    if not doc_ref.get().exists:
+        raise HTTPException(404, "Room not found")
+    doc_ref.delete()
+    return
