@@ -9,6 +9,7 @@ import Sidebar from '@/components/Sidebar';
 export default function HomePage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [pinnedImages, setPinnedImages] = useState<number[]>([]);
+  const [selectedImages, setSelectedImages] = useState<string[]>([]);
 
   const togglePin = (imageId: number) => {
     setPinnedImages(prev => 
@@ -18,28 +19,83 @@ export default function HomePage() {
     );
   };
 
+  const handleImageSelect = (imageSrc: string) => {
+    setSelectedImages(prev => {
+      if (prev.includes(imageSrc)) {
+        return prev.filter(src => src !== imageSrc);
+      }
+      return [...prev, imageSrc].slice(0, 3); // 최대 3개까지
+    });
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       {/* 네비게이션 바 */}
-      <Navigation />
+      <Navigation onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
       
-      <div className="flex">
+      <div className="flex h-screen pt-16">
         {/* 사이드바 */}
         <Sidebar 
           isOpen={isSidebarOpen}
           pinnedImages={pinnedImages}
         />
         
-        {/* 메인 콘텐츠 */}
-        <div className={`flex-1 ${isSidebarOpen ? 'ml-64' : 'ml-0'}`}>
+        {/* 메인 콘텐츠 영역 */}
+        <div className={`flex flex-1 ${isSidebarOpen ? 'ml-64' : 'ml-0'}`}>
           {/* 메인 인터랙션 패널 */}
-          <MainPanel />
+          <div className="w-2/5">
+            <MainPanel 
+              selectedImages={selectedImages}
+              onImageSelect={handleImageSelect}
+            />
+          </div>
           
           {/* 갤러리 */}
-          <Gallery 
-            onTogglePin={togglePin}
-            pinnedImages={pinnedImages}
-          />
+          <div className="w-3/5 flex flex-col">
+            {/* 브랜드 설명 */}
+            <div className="p-6 flex items-start gap-6" style={{ backgroundColor: '#edeae3' }}>
+              {/* 브랜드 이미지 */}
+              <div className="flex-shrink-0">
+                <img 
+                  src="/images/layminder.png" 
+                  alt="Layer Minder Brand" 
+                  className="w-64 h-auto object-contain"
+                />
+              </div>
+              
+              <div className="flex-1">
+                <h2 className="text-lg font-light text-gray-600 leading-relaxed">
+                  &quot;Redefining Heritage<br />
+                  for a Creative Future&quot;
+                </h2>
+                <div className="mt-4 text-sm text-gray-700 leading-relaxed">
+                  <p className="mb-2">
+                    <strong>Layer Minder aims to uncover new possibilities for the future by reimagining 
+                    heritage industries rooted in local identity.</strong> We believe that tradition and 
+                    innovation are not opposing forces but complementary layers in the story of 
+                    human creativity.
+                  </p>
+                  <p className="mb-2">
+                    By integrating advanced AI technology with the timeless values of craftsmanship, 
+                    we seek to preserve the cultural essence of heritage industries 
+                    while propelling them into new directions. Layer Minder is committed to ensuring 
+                    that these traditions not only survive but thrive, inspiring contemporary 
+                    audiences and shaping a more connected, creative future.
+                  </p>
+                  <p>
+                    Together, we are building bridges between the past and the future, enabling 
+                    everyone to explore and create with the transformative power of design.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <Gallery 
+              onTogglePin={togglePin}
+              pinnedImages={pinnedImages}
+              onImageSelect={handleImageSelect}
+            />
+          </div>
         </div>
       </div>
     </div>
