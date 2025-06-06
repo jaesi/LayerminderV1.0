@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Pin, X } from 'lucide-react';
+import { Pin } from 'lucide-react';
 import { dummyImages, keywords } from '@/data/dummyData';
 
 interface GalleryProps {
@@ -23,6 +23,8 @@ export default function Gallery({
 }: GalleryProps) {
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [pinModalImageId, setPinModalImageId] = useState<number | null>(null);
+  const [pinModalPosition, setPinModalPosition] = useState<{top: number, left: number, width: number, height: number} | null>(null);
+  const [boardSearchTerm, setBoardSearchTerm] = useState('');
   
   // 3행 6열 구성: 각 행마다 output 4개 + reference 1개 + keyword 1개
   const createRow = (rowIndex: number) => {
@@ -49,15 +51,70 @@ export default function Gallery({
 
   const handlePinClick = (e: React.MouseEvent, imageId: number) => {
     e.stopPropagation();
+    
+    const target = e.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    const galleryContainer = target.closest('.grid.grid-cols-6');
+    const containerRect = galleryContainer?.getBoundingClientRect();
+    
+    if (containerRect) {
+      // 이미지 하나의 크기 + gap (갤러리 컨테이너 너비 / 6)
+      const imageSize = containerRect.width / 6;
+      const gap = 8; // gap-2 = 0.5rem = 8px
+      // 2x2 모달 크기 (이미지 2개 + gap 1개) - 절대값으로 계산
+      const modalWidth = imageSize * 2 + gap;
+      const modalHeight = imageSize * 2 + gap;
+      
+      // 현재 이미지의 갤러리 내 상대적 위치
+      const relativeLeft = rect.left - containerRect.left;
+      const relativeTop = rect.top - containerRect.top;
+      
+      // 가능한 위치들 체크 (우선순위: 우측 -> 좌측 -> 하단 -> 상단)
+      let modalLeft = relativeLeft;
+      let modalTop = relativeTop;
+      
+      // 우측에 공간이 있는지 체크
+      if (relativeLeft + imageSize + gap + modalWidth <= containerRect.width) {
+        modalLeft = relativeLeft + imageSize + gap;
+      }
+      // 좌측에 공간이 있는지 체크
+      else if (relativeLeft - modalWidth - gap >= 0) {
+        modalLeft = relativeLeft - modalWidth - gap;
+      }
+      // 하단에 공간이 있는지 체크
+      else if (relativeTop + imageSize + gap + modalHeight <= containerRect.height) {
+        modalTop = relativeTop + imageSize + gap;
+      }
+      // 상단에 공간이 있는지 체크
+      else if (relativeTop - modalHeight - gap >= 0) {
+        modalTop = relativeTop - modalHeight - gap;
+      }
+      
+      setPinModalPosition({ 
+        top: modalTop, 
+        left: modalLeft,
+        width: modalWidth,
+        height: modalHeight
+      });
+    }
+    
     setPinModalImageId(imageId);
+    setBoardSearchTerm(''); // 검색어 초기화
   };
 
   const handleBoardSelect = (boardName: string) => {
     if (pinModalImageId !== null) {
       onTogglePin(pinModalImageId, boardName);
       setPinModalImageId(null);
+      setPinModalPosition(null);
+      setBoardSearchTerm('');
     }
   };
+
+  // 검색된 보드 필터링
+  const filteredBoards = boardNames.filter(board => 
+    board.toLowerCase().includes(boardSearchTerm.toLowerCase())
+  );
 
   return (
     <div className="flex-1 overflow-y-auto relative">
@@ -172,31 +229,52 @@ export default function Gallery({
       </div>
 
       {/* 핀 보드 선택 모달 */}
-      {pinModalImageId !== null && (
-        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 w-80 max-h-96 overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium">핀할 보드 선택</h3>
-              <button 
-                onClick={() => setPinModalImageId(null)}
-                className="p-1 hover:bg-gray-100"
-              >
-                <X size={20} />
-              </button>
+      {pinModalImageId !== null && pinModalPosition && (
+        <>
+          {/* 모달 */}
+          <div 
+            className="absolute z-50 bg-white border border-gray-300 shadow-lg overflow-hidden flex flex-col"
+            style={{
+              top: `${pinModalPosition.top}px`,
+              left: `${pinModalPosition.left}px`,
+              width: `${pinModalPosition.width}px`,
+              height: `${pinModalPosition.height}px`,
+            }}
+          >
+            {/* 검색창 */}
+            <div className="p-2 border-b border-gray-200 flex-shrink-0">
+              <input
+                type="text"
+                placeholder="보드 검색..."
+                value={boardSearchTerm}
+                onChange={(e) => setBoardSearchTerm(e.target.value)}
+                className="w-full px-2 py-1 text-xs border border-gray-300 focus:outline-none focus:border-gray-500"
+                autoFocus
+              />
             </div>
-            <div className="space-y-2">
-              {boardNames.map((boardName) => (
-                <button
-                  key={boardName}
-                  onClick={() => handleBoardSelect(boardName)}
-                  className="w-full text-left p-3 hover:bg-gray-100 border border-gray-200 transition-colors"
-                >
-                  {boardName}
-                </button>
-              ))}
+            
+            {/* 보드 목록 */}
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-1">
+                {filteredBoards.length > 0 ? (
+                  filteredBoards.map((boardName) => (
+                    <button
+                      key={boardName}
+                      onClick={() => handleBoardSelect(boardName)}
+                      className="w-full text-left px-2 py-1 text-xs hover:bg-gray-100 transition-colors block"
+                    >
+                      {boardName}
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-2 py-1 text-xs text-gray-500">
+                    검색 결과가 없습니다.
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
