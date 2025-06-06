@@ -1,17 +1,28 @@
 'use client';
 
 import { useState } from 'react';
-import { Pin } from 'lucide-react';
+import { Pin, X } from 'lucide-react';
 import { dummyImages, keywords } from '@/data/dummyData';
 
 interface GalleryProps {
-  onTogglePin: (imageId: number) => void;
+  onTogglePin: (imageId: number, boardName?: string) => void;
   pinnedImages: number[];
   onImageSelect: (imageSrc: string) => void;
+  onKeywordSelect: (keyword: string) => void;
+  selectedKeywords: string[];
+  boardNames: string[];
 }
 
-export default function Gallery({ onTogglePin, pinnedImages, onImageSelect }: GalleryProps) {
+export default function Gallery({ 
+  onTogglePin, 
+  pinnedImages, 
+  onImageSelect, 
+  onKeywordSelect,
+  selectedKeywords,
+  boardNames 
+}: GalleryProps) {
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
+  const [pinModalImageId, setPinModalImageId] = useState<number | null>(null);
   
   // 3행 6열 구성: 각 행마다 output 4개 + reference 1개 + keyword 1개
   const createRow = (rowIndex: number) => {
@@ -32,8 +43,24 @@ export default function Gallery({ onTogglePin, pinnedImages, onImageSelect }: Ga
     e.dataTransfer.setData('image/src', imageSrc);
   };
 
+  const handleKeywordDragStart = (e: React.DragEvent, keyword: string) => {
+    e.dataTransfer.setData('keyword', keyword);
+  };
+
+  const handlePinClick = (e: React.MouseEvent, imageId: number) => {
+    e.stopPropagation();
+    setPinModalImageId(imageId);
+  };
+
+  const handleBoardSelect = (boardName: string) => {
+    if (pinModalImageId !== null) {
+      onTogglePin(pinModalImageId, boardName);
+      setPinModalImageId(null);
+    }
+  };
+
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="flex-1 overflow-y-auto relative">
       <div className="p-4 space-y-3">
         {rows.map((row, rowIndex) => (
           <div key={rowIndex}>
@@ -51,7 +78,7 @@ export default function Gallery({ onTogglePin, pinnedImages, onImageSelect }: Ga
                     onImageSelect(image.src);
                   }}
                 >
-                  <div className="aspect-square bg-gray-200 overflow-hidden rounded-sm">
+                  <div className="aspect-square bg-gray-200 overflow-hidden">
                     <img
                       src={image.src}
                       alt=""
@@ -61,11 +88,8 @@ export default function Gallery({ onTogglePin, pinnedImages, onImageSelect }: Ga
                   
                   {/* 핀 버튼 (호버시 표시) */}
                   <button
-                    className="absolute top-1 right-1 p-1 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onTogglePin(image.id);
-                    }}
+                    className="absolute top-1 right-1 p-1 bg-white shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => handlePinClick(e, image.id)}
                   >
                     <Pin
                       size={12}
@@ -85,7 +109,7 @@ export default function Gallery({ onTogglePin, pinnedImages, onImageSelect }: Ga
                   onImageSelect(row.reference.src);
                 }}
               >
-                <div className="aspect-square bg-gray-200 overflow-hidden rounded-sm">
+                <div className="aspect-square bg-gray-200 overflow-hidden">
                   <img
                     src={row.reference.src}
                     alt=""
@@ -93,18 +117,13 @@ export default function Gallery({ onTogglePin, pinnedImages, onImageSelect }: Ga
                   />
                 </div>
                 
-                {/* Reference 라벨 */}
-                <div className="absolute bottom-1 left-1 px-1 py-0.5 bg-black bg-opacity-70 text-white text-xs rounded">
-                  REF
-                </div>
+                {/* Reference 표시 - 좌측 상단 검정 원 */}
+                <div className="absolute top-1 left-1 w-3 h-3 bg-black rounded-full"></div>
                 
                 {/* 핀 버튼 */}
                 <button
-                  className="absolute top-1 right-1 p-1 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onTogglePin(row.reference.id);
-                  }}
+                  className="absolute top-1 right-1 p-1 bg-white shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={(e) => handlePinClick(e, row.reference.id)}
                 >
                   <Pin
                     size={12}
@@ -114,14 +133,23 @@ export default function Gallery({ onTogglePin, pinnedImages, onImageSelect }: Ga
               </div>
               
               {/* Keyword 박스 1개 */}
-              <div className="aspect-square bg-gray-800 text-white flex items-center justify-center rounded-sm cursor-pointer hover:bg-gray-700 transition-colors">
+              <div 
+                className={`aspect-square flex items-center justify-center cursor-pointer transition-colors ${
+                  selectedKeywords.includes(row.keyword) 
+                    ? 'bg-gray-800 text-white' 
+                    : 'bg-transparent text-gray-800 border border-gray-300 hover:bg-gray-100'
+                }`}
+                draggable
+                onDragStart={(e) => handleKeywordDragStart(e, row.keyword)}
+                onClick={() => onKeywordSelect(row.keyword)}
+              >
                 <span className="text-sm font-medium">{row.keyword}</span>
               </div>
             </div>
 
             {/* 확장된 상세 정보 */}
             {expandedRow === rowIndex && (
-              <div className="mt-2 p-3 bg-white bg-opacity-50 rounded-sm">
+              <div className="mt-2 p-3 bg-white bg-opacity-50">
                 <h4 className="font-medium text-sm mb-1">상세 정보</h4>
                 <p className="text-gray-600 text-xs mb-2">
                   이 행의 이미지들에 대한 상세 정보가 여기에 표시됩니다.
@@ -142,6 +170,34 @@ export default function Gallery({ onTogglePin, pinnedImages, onImageSelect }: Ga
           </div>
         ))}
       </div>
+
+      {/* 핀 보드 선택 모달 */}
+      {pinModalImageId !== null && (
+        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 w-80 max-h-96 overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium">핀할 보드 선택</h3>
+              <button 
+                onClick={() => setPinModalImageId(null)}
+                className="p-1 hover:bg-gray-100"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="space-y-2">
+              {boardNames.map((boardName) => (
+                <button
+                  key={boardName}
+                  onClick={() => handleBoardSelect(boardName)}
+                  className="w-full text-left p-3 hover:bg-gray-100 border border-gray-200 transition-colors"
+                >
+                  {boardName}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -10,13 +10,25 @@ export default function HomePage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [pinnedImages, setPinnedImages] = useState<number[]>([]);
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
 
-  const togglePin = (imageId: number) => {
+  // 보드 이름들
+  const boardNames = [
+    'Sofa', 'Lounge Chair', 'Coffee Table', 'Stool', 'Bench', 'Daybed',
+    'Console', 'Dining Table', 'Armless Chair', 'Arm Chair', 'Bar Chair',
+    'Desk', 'Storage', 'Cabinet', 'Bed Headboard', 'Mirror', 'Lighting', 'Artwork'
+  ];
+
+  const togglePin = (imageId: number, boardName?: string) => {
     setPinnedImages(prev => 
       prev.includes(imageId) 
         ? prev.filter(id => id !== imageId)
         : [...prev, imageId]
     );
+    // TODO: 실제로는 여기서 boardName에 따라 해당 보드에 이미지를 저장하는 로직 추가
+    if (boardName) {
+      console.log(`Image ${imageId} pinned to board: ${boardName}`);
+    }
   };
 
   const handleImageSelect = (imageSrc: string) => {
@@ -25,6 +37,15 @@ export default function HomePage() {
         return prev.filter(src => src !== imageSrc);
       }
       return [...prev, imageSrc].slice(0, 3); // 최대 3개까지
+    });
+  };
+
+  const handleKeywordSelect = (keyword: string) => {
+    setSelectedKeywords(prev => {
+      if (prev.includes(keyword)) {
+        return prev.filter(k => k !== keyword);
+      }
+      return [...prev, keyword];
     });
   };
 
@@ -47,6 +68,8 @@ export default function HomePage() {
             <MainPanel 
               selectedImages={selectedImages}
               onImageSelect={handleImageSelect}
+              selectedKeywords={selectedKeywords}
+              onKeywordSelect={handleKeywordSelect}
             />
           </div>
           
@@ -94,6 +117,9 @@ export default function HomePage() {
               onTogglePin={togglePin}
               pinnedImages={pinnedImages}
               onImageSelect={handleImageSelect}
+              onKeywordSelect={handleKeywordSelect}
+              selectedKeywords={selectedKeywords}
+              boardNames={boardNames}
             />
           </div>
         </div>
