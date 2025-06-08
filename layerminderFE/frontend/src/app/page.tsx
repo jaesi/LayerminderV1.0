@@ -105,10 +105,6 @@ export default function HomePage() {
                     that these traditions not only survive but thrive, inspiring contemporary 
                     audiences and shaping a more connected, creative future.
                   </p>
-                  <p>
-                    Together, we are building bridges between the past and the future, enabling 
-                    everyone to explore and create with the transformative power of design.
-                  </p>
                 </div>
               </div>
             </div>
