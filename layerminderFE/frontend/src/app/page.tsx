@@ -76,35 +76,37 @@ export default function HomePage() {
           {/* 갤러리 */}
           <div className="w-3/5 flex flex-col">
             {/* 브랜드 설명 */}
-            <div className="p-6 flex items-start gap-6" style={{ backgroundColor: '#edeae3' }}>
-              {/* 브랜드 이미지 */}
-              <div className="flex-shrink-0">
-                <img 
-                  src="/images/layminder.png" 
-                  alt="Layer Minder Brand" 
-                  className="w-64 h-auto object-contain"
-                />
-              </div>
-              
-              <div className="flex-1">
-                <h2 className="text-lg font-light text-gray-600 leading-relaxed">
-                  &quot;Redefining Heritage<br />
-                  for a Creative Future&quot;
-                </h2>
-                <div className="mt-4 text-sm text-gray-700 leading-relaxed">
-                  <p className="mb-2">
-                    <strong>Layer Minder aims to uncover new possibilities for the future by reimagining 
-                    heritage industries rooted in local identity.</strong> We believe that tradition and 
-                    innovation are not opposing forces but complementary layers in the story of 
-                    human creativity.
-                  </p>
-                  <p className="mb-2">
-                    By integrating advanced AI technology with the timeless values of craftsmanship, 
-                    we seek to preserve the cultural essence of heritage industries 
-                    while propelling them into new directions. Layer Minder is committed to ensuring 
-                    that these traditions not only survive but thrive, inspiring contemporary 
-                    audiences and shaping a more connected, creative future.
-                  </p>
+            <div className="p-4" style={{ backgroundColor: '#edeae3' }}>
+              <div className="grid grid-cols-6 gap-2">
+                {/* 브랜드 이미지 */}
+                <div className="col-span-2 flex items-start justify-center">
+                  <img 
+                    src="/images/layminder.png" 
+                    alt="Layer Minder Brand" 
+                    className="w-full h-auto object-contain"
+                  />
+                </div>
+
+                <div className="col-span-4 flex flex-col justify-start pl-4">
+                  <h2 className="text-lg font-light text-gray-600 leading-relaxed mb-4">
+                    &quot;Redefining Heritage<br />
+                    for a Creative Future&quot;
+                  </h2>
+                  <div className="mt-4 text-sm text-gray-700 leading-relaxed">
+                    <p className="mb-2">
+                      <strong>Layer Minder aims to uncover new possibilities for the future by reimagining 
+                      heritage industries rooted in local identity.</strong> We believe that tradition and 
+                      innovation are not opposing forces but complementary layers in the story of 
+                      human creativity.
+                    </p>
+                    <p className="mb-2">
+                      By integrating advanced AI technology with the timeless values of craftsmanship, 
+                      we seek to preserve the cultural essence of heritage industries 
+                      while propelling them into new directions. Layer Minder is committed to ensuring 
+                      that these traditions not only survive but thrive, inspiring contemporary 
+                      audiences and shaping a more connected, creative future.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
