@@ -64,7 +64,7 @@ export default function HomePage() {
         {/* 메인 콘텐츠 영역 */}
         <div className={`flex flex-1 ${isSidebarOpen ? 'ml-64' : 'ml-0'}`}>
           {/* 메인 인터랙션 패널 */}
-          <div className="w-2/5">
+          <div className="w-3/10">
             <MainPanel 
               selectedImages={selectedImages}
               onImageSelect={handleImageSelect}
@@ -74,9 +74,9 @@ export default function HomePage() {
           </div>
           
           {/* 갤러리 */}
-          <div className="w-3/5 flex flex-col">
+          <div className="w-7/10 flex flex-col">
             {/* 브랜드 설명 */}
-            <div className="p-4" style={{ backgroundColor: '#edeae3' }}>
+            <div className="px-4 pt-4 pb-1" style={{ backgroundColor: '#edeae3' }}>
               <div className="grid grid-cols-6 gap-2">
                 {/* 브랜드 이미지 */}
                 <div className="col-span-2 flex items-start justify-center">

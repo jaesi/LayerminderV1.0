@@ -118,7 +118,7 @@ export default function Gallery({
 
   return (
     <div className="flex-1 overflow-y-auto relative">
-      <div className="p-4 space-y-3">
+      <div className="px-4 pt-1 pb-4 space-y-2">
         {rows.map((row, rowIndex) => (
           <div key={rowIndex}>
             {/* 이미지 행 - 6열 그리드 */}
