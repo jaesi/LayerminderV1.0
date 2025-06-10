@@ -6,7 +6,7 @@ interface NavigationProps {
 
 export default function Navigation({ onToggleSidebar }: NavigationProps) {
   return (
-    <nav style={{ backgroundColor: '#edeae3' }} className="shadow-sm fixed top-0 left-0 right-0 z-50">
+    <nav style={{ backgroundColor: '#edeae3' }} className="fixed top-0 left-0 right-0 z-50">
       <div className="px-4 h-16 flex items-center justify-between">
         {/* 로고 영역 */}
         <div className="flex items-center gap-3">
