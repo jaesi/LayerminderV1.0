@@ -45,9 +45,9 @@ export default function Sidebar({ isOpen, pinnedImages }: SidebarProps) {
       {/* 현재 폴더 */}
       <div className="mb-6">
         <h2 className="text-lg font-semibold mb-2">Archive</h2>
-        <div className="text-sm text-gray-500">
+        {/* <div className="text-sm text-gray-500">
           핀된 이미지: {pinnedImages.length}개
-        </div>
+        </div> */}
       </div>
 
       {/* 보드 목록 */}

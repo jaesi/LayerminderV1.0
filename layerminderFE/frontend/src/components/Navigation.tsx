@@ -10,7 +10,7 @@ export default function Navigation({ onToggleSidebar }: NavigationProps) {
       <div className="px-4 h-16 flex items-center justify-between">
         {/* 로고 영역 */}
         <div className="flex items-center gap-3">
-          <img src="/images/logo.png" alt="Logo" className="h-8" />
+          <img src="/images/logo.png" alt="Logo" className="h-4" />
           {/* <div className="text-xl font-bold text-gray-800">LAYER MINDER</div> */}
         </div>
         
