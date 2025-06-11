@@ -11,6 +11,11 @@ interface GalleryProps {
   onKeywordSelect: (keyword: string) => void;
   selectedKeywords: string[];
   boardNames: string[];
+  onRowSelect: (rowData: {
+    rowIndex: number;
+    images: Array<{ id: number; src: string; isPinned: boolean }>;
+    keyword: string;
+  }) => void;
 }
 
 export default function Gallery({ 
@@ -19,9 +24,9 @@ export default function Gallery({
   onImageSelect, 
   onKeywordSelect,
   selectedKeywords,
-  boardNames 
+  boardNames,
+  onRowSelect
 }: GalleryProps) {
-  const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [pinModalImageId, setPinModalImageId] = useState<number | null>(null);
   const [pinModalPosition, setPinModalPosition] = useState<{top: number, left: number, width: number, height: number} | null>(null);
   const [boardSearchTerm, setBoardSearchTerm] = useState('');
@@ -111,6 +116,17 @@ export default function Gallery({
     }
   };
 
+  const handleRowClick = (rowIndex: number) => {
+    const row = rows[rowIndex];
+    const allImages = [...row.outputs, row.reference];
+    
+    onRowSelect({
+      rowIndex,
+      images: allImages,
+      keyword: row.keyword
+    });
+  };
+
   // 검색된 보드 필터링
   const filteredBoards = boardNames.filter(board => 
     board.toLowerCase().includes(boardSearchTerm.toLowerCase())
@@ -131,8 +147,8 @@ export default function Gallery({
                   draggable
                   onDragStart={(e) => handleImageDragStart(e, image.src)}
                   onClick={() => {
-                    setExpandedRow(expandedRow === rowIndex ? null : rowIndex);
                     onImageSelect(image.src);
+                    handleRowClick(rowIndex);
                   }}
                 >
                   <div className="aspect-square bg-gray-200 overflow-hidden">
@@ -162,8 +178,8 @@ export default function Gallery({
                 draggable
                 onDragStart={(e) => handleImageDragStart(e, row.reference.src)}
                 onClick={() => {
-                  setExpandedRow(expandedRow === rowIndex ? null : rowIndex);
                   onImageSelect(row.reference.src);
+                  handleRowClick(rowIndex);
                 }}
               >
                 <div className="aspect-square bg-gray-200 overflow-hidden">
@@ -198,32 +214,14 @@ export default function Gallery({
                 }`}
                 draggable
                 onDragStart={(e) => handleKeywordDragStart(e, row.keyword)}
-                onClick={() => onKeywordSelect(row.keyword)}
+                onClick={() => {
+                  onKeywordSelect(row.keyword);
+                  handleRowClick(rowIndex);
+                }}
               >
                 <span className="text-sm font-medium">{row.keyword}</span>
               </div>
             </div>
-
-            {/* 확장된 상세 정보 */}
-            {expandedRow === rowIndex && (
-              <div className="mt-2 p-3 bg-white bg-opacity-50">
-                <h4 className="font-medium text-sm mb-1">상세 정보</h4>
-                <p className="text-gray-600 text-xs mb-2">
-                  이 행의 이미지들에 대한 상세 정보가 여기에 표시됩니다.
-                </p>
-                <div className="flex gap-1 flex-wrap">
-                  <span className="px-2 py-1 bg-gray-200 rounded-full text-xs">
-                    {row.keyword}
-                  </span>
-                  <span className="px-2 py-1 bg-gray-200 rounded-full text-xs">
-                    Modern
-                  </span>
-                  <span className="px-2 py-1 bg-gray-200 rounded-full text-xs">
-                    Wood
-                  </span>
-                </div>
-              </div>
-            )}
           </div>
         ))}
       </div>

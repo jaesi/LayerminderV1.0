@@ -7,13 +7,15 @@ interface MainPanelProps {
   onImageSelect: (imageSrc: string) => void;
   selectedKeywords: string[];
   onKeywordSelect: (keyword: string) => void;
+  onGenerate: () => void;
 }
 
 export default function MainPanel({ 
   selectedImages, 
   onImageSelect, 
   selectedKeywords, 
-  onKeywordSelect 
+  onKeywordSelect,
+  onGenerate 
 }: MainPanelProps) {
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -53,7 +55,8 @@ export default function MainPanel({
         {/* Generate 버튼 */}
         <div className="w-80 h-80 flex flex-col items-center justify-center">
           <div className="w-3 h-3 bg-gray-800 rounded-full mb-2"></div>
-          <button className="text-2xl italic font-light text-gray-700">
+          <button className="text-2xl italic font-light text-gray-700 hover:text-gray-900 transition-colors"
+            onClick={onGenerate}>
             Generate
           </button>
         </div>

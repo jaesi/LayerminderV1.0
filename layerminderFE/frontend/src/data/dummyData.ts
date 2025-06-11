@@ -20,4 +20,14 @@ export const dummyImages = {
   ]
 };
 
+// AI 생성 이미지 더미 데이터
+export const dummyGeneratedImages = [
+  '/images/generated/gen1.png',
+  '/images/generated/gen2.png', 
+  '/images/generated/gen3.png',
+  '/images/generated/gen4.png',
+  '/images/generated/gen5.png',
+  '/images/generated/gen6.png'
+];
+
 export const keywords = ['Bold', 'Subtle', 'Minimal', 'Maximal', 'Geometric', 'Organic'];

@@ -5,12 +5,23 @@ import Navigation from '@/components/Navigation';
 import MainPanel from '@/components/MainPanel';
 import Gallery from '@/components/Gallery';
 import Sidebar from '@/components/Sidebar';
+import TopPanel from '@/components/TopPanel';
+import { dummyGeneratedImages } from '@/data/dummyData';
 
 export default function HomePage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [pinnedImages, setPinnedImages] = useState<number[]>([]);
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
+  
+  // TopPanel 상태 관리
+  const [topPanelMode, setTopPanelMode] = useState<'brand' | 'generate' | 'details'>('brand');
+  const [selectedRowData, setSelectedRowData] = useState<{
+    rowIndex: number;
+    images: Array<{ id: number; src: string; isPinned: boolean }>;
+    keyword: string;
+  } | null>(null);
+  const [generatedImages, setGeneratedImages] = useState<string[]>([]);
 
   // 보드 이름들
   const boardNames = [
@@ -49,6 +60,28 @@ export default function HomePage() {
     });
   };
 
+  const handleRowSelect = (rowData: {
+    rowIndex: number;
+    images: Array<{ id: number; src: string; isPinned: boolean }>;
+    keyword: string;
+  }) => {
+    setSelectedRowData(rowData);
+    setTopPanelMode('details');
+  };
+
+  const handleGenerate = () => {
+    // TODO: 실제 AI 생성 로직
+    // 임시로 더미 이미지들 사용
+    setGeneratedImages(dummyGeneratedImages);
+    setTopPanelMode('generate');
+  };
+
+  const handleTopPanelClose = () => {
+    setTopPanelMode('brand');
+    setSelectedRowData(null);
+    setGeneratedImages([]);
+  };
+
   return (
     <div className="min-h-screen">
       {/* 네비게이션 바 */}
@@ -70,46 +103,19 @@ export default function HomePage() {
               onImageSelect={handleImageSelect}
               selectedKeywords={selectedKeywords}
               onKeywordSelect={handleKeywordSelect}
+              onGenerate={handleGenerate}
             />
           </div>
           
           {/* 갤러리 */}
           <div className="w-7/10 flex flex-col">
-            {/* 브랜드 설명 */}
-            <div className="px-4 pt-4 pb-1" style={{ backgroundColor: '#edeae3' }}>
-              <div className="grid grid-cols-6 gap-2">
-                {/* 브랜드 이미지 */}
-                <div className="col-span-2 flex items-start justify-center">
-                  <img 
-                    src="/images/layminder.png" 
-                    alt="Layer Minder Brand" 
-                    className="w-full h-auto object-contain"
-                  />
-                </div>
-
-                <div className="col-span-4 flex flex-col justify-start pl-4">
-                  <h2 className="text-lg font-light text-gray-600 leading-relaxed mb-4">
-                    &quot;Redefining Heritage<br />
-                    for a Creative Future&quot;
-                  </h2>
-                  <div className="mt-4 text-sm text-gray-700 leading-relaxed">
-                    <p className="mb-2">
-                      <strong>Layer Minder aims to uncover new possibilities for the future by reimagining 
-                      heritage industries rooted in local identity.</strong> We believe that tradition and 
-                      innovation are not opposing forces but complementary layers in the story of 
-                      human creativity.
-                    </p>
-                    <p className="mb-2">
-                      By integrating advanced AI technology with the timeless values of craftsmanship, 
-                      we seek to preserve the cultural essence of heritage industries 
-                      while propelling them into new directions. Layer Minder is committed to ensuring 
-                      that these traditions not only survive but thrive, inspiring contemporary 
-                      audiences and shaping a more connected, creative future.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {/* 상단 패널 (브랜드 정보 / 생성 결과 / 상세 정보) */}
+            <TopPanel
+              mode={topPanelMode}
+              selectedRowData={selectedRowData}
+              generatedImages={generatedImages}
+              onClose={handleTopPanelClose}
+            />
             
             <Gallery 
               onTogglePin={togglePin}
@@ -118,6 +124,7 @@ export default function HomePage() {
               onKeywordSelect={handleKeywordSelect}
               selectedKeywords={selectedKeywords}
               boardNames={boardNames}
+              onRowSelect={handleRowSelect}
             />
           </div>
         </div>
