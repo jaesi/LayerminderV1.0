@@ -7,23 +7,18 @@ import { dummyImages, keywords } from '@/data/dummyData';
 interface GalleryProps {
   onTogglePin: (imageId: number, boardName?: string) => void;
   pinnedImages: number[];
-  onImageSelect: (imageSrc: string) => void;
-  onKeywordSelect: (keyword: string) => void;
-  selectedKeywords: string[];
   boardNames: string[];
   onRowSelect: (rowData: {
     rowIndex: number;
     images: Array<{ id: number; src: string; isPinned: boolean }>;
     keyword: string;
+    startImageIndex?: number;
   }) => void;
 }
 
 export default function Gallery({ 
   onTogglePin, 
   pinnedImages, 
-  onImageSelect, 
-  onKeywordSelect,
-  selectedKeywords,
   boardNames,
   onRowSelect
 }: GalleryProps) {
@@ -116,14 +111,24 @@ export default function Gallery({
     }
   };
 
-  const handleRowClick = (rowIndex: number) => {
+  const handleRowClick = (rowIndex: number, clickedImageId?: number) => {
     const row = rows[rowIndex];
     const allImages = [...row.outputs, row.reference];
+
+    // 클릭된 이미지의 인덱스 찾기
+    let startImageIndex = 0;
+    if (clickedImageId) {
+      const clickedIndex = allImages.findIndex(img => img.id === clickedImageId);
+      if (clickedIndex !== -1) {
+        startImageIndex = clickedIndex;
+      }
+    }
     
     onRowSelect({
       rowIndex,
       images: allImages,
-      keyword: row.keyword
+      keyword: row.keyword,
+      startImageIndex
     });
   };
 
@@ -147,7 +152,6 @@ export default function Gallery({
                   draggable
                   onDragStart={(e) => handleImageDragStart(e, image.src)}
                   onClick={() => {
-                    onImageSelect(image.src);
                     handleRowClick(rowIndex);
                   }}
                 >
@@ -178,8 +182,7 @@ export default function Gallery({
                 draggable
                 onDragStart={(e) => handleImageDragStart(e, row.reference.src)}
                 onClick={() => {
-                  onImageSelect(row.reference.src);
-                  handleRowClick(rowIndex);
+                  handleRowClick(rowIndex, row.reference.id);
                 }}
               >
                 <div className="aspect-square bg-gray-200 overflow-hidden">
@@ -207,15 +210,10 @@ export default function Gallery({
               
               {/* Keyword 박스 1개 */}
               <div 
-                className={`aspect-square flex items-center justify-center cursor-pointer transition-colors ${
-                  selectedKeywords.includes(row.keyword) 
-                    ? 'bg-gray-800 text-white' 
-                    : 'bg-transparent text-gray-800 border border-gray-300 hover:bg-gray-100'
-                }`}
+                className="aspect-square flex items-center justify-center cursor-pointer transition-colors bg-transparent text-gray-800 border border-gray-300 hover:bg-gray-100"
                 draggable
                 onDragStart={(e) => handleKeywordDragStart(e, row.keyword)}
                 onClick={() => {
-                  onKeywordSelect(row.keyword);
                   handleRowClick(rowIndex);
                 }}
               >
