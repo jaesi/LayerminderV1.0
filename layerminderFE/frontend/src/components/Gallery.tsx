@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Pin } from 'lucide-react';
 import { dummyImages, keywords } from '@/data/dummyData';
 
@@ -25,17 +25,49 @@ export default function Gallery({
   const [pinModalImageId, setPinModalImageId] = useState<number | null>(null);
   const [pinModalPosition, setPinModalPosition] = useState<{top: number, left: number, width: number, height: number} | null>(null);
   const [boardSearchTerm, setBoardSearchTerm] = useState('');
+  const [isClient, setIsClient] = useState(false);
+
+  // 클라이언트 사이드에서만 랜덤 배치 활성화
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // 시드 기반 랜덤 함수 (일관된 결과 보장)
+  const seededRandom = (seed: number) => {
+    let x = Math.sin(seed) * 10000;
+    return x - Math.floor(x);
+  };
+
+  // 배열 셔플 함수 (시드 기반)
+  const shuffleArray = <T,>(array: T[], seed: number): T[] => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const randomValue = seededRandom(seed + i);
+      const j = Math.floor(randomValue * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  };
   
   // 3행 6열 구성: 각 행마다 output 4개 + reference 1개 + keyword 1개
   const createRow = (rowIndex: number) => {
     const outputImages = dummyImages.outputs.slice(rowIndex * 4, (rowIndex + 1) * 4);
     const referenceImage = dummyImages.references[rowIndex] || dummyImages.references[0];
     const keyword = keywords[rowIndex] || keywords[0];
+
+    // 6개 아이템 배열로 만들고 타입 구분
+    const items = [
+      ...outputImages.map(img => ({ type: 'output' as const, data: img})),
+      { type: 'reference' as const, data: referenceImage },
+      { type: 'keyword' as const, data: keyword }
+    ];
+
+    // 클라이언트에서만 랜덤하게 섞기 (시드 사용으로 일관성 보장)
+    const shuffledItems = isClient ? shuffleArray(items, rowIndex * 1000) : items;
     
     return {
-      outputs: outputImages,
-      reference: referenceImage,
-      keyword: keyword
+      items: shuffledItems,
+      allImages: [...outputImages, referenceImage] // 원본 순서 유지
     };
   };
 
@@ -113,7 +145,7 @@ export default function Gallery({
 
   const handleRowClick = (rowIndex: number, clickedImageId?: number) => {
     const row = rows[rowIndex];
-    const allImages = [...row.outputs, row.reference];
+    const allImages = row.allImages;
 
     // 클릭된 이미지의 인덱스 찾기
     let startImageIndex = 0;
@@ -123,11 +155,15 @@ export default function Gallery({
         startImageIndex = clickedIndex;
       }
     }
+
+    // keyword 추출
+    const keywordItem = row.items.find(item => item.type === 'keyword');
+    const keyword = keywordItem ? keywordItem.data : '';
     
     onRowSelect({
       rowIndex,
       images: allImages,
-      keyword: row.keyword,
+      keyword: keyword,
       startImageIndex
     });
   };
@@ -142,83 +178,90 @@ export default function Gallery({
       <div className="px-4 pt-1 pb-4 space-y-2">
         {rows.map((row, rowIndex) => (
           <div key={rowIndex}>
-            {/* 이미지 행 - 6열 그리드 */}
             <div className="grid grid-cols-6 gap-2">
-              {/* Output 이미지 4개 */}
-              {row.outputs.map((image) => (
-                <div
-                  key={image.id}
-                  className="relative group cursor-pointer"
-                  draggable
-                  onDragStart={(e) => handleImageDragStart(e, image.src)}
-                  onClick={() => {
-                    handleRowClick(rowIndex, image.id);
-                  }}
-                >
-                  <div className="aspect-square bg-gray-200 overflow-hidden">
-                    <img
-                      src={image.src}
-                      alt=""
-                      className="w-full h-full object-cover hover:scale-105 transition-transform"
-                    />
-                  </div>
-                  
-                  {/* 핀 버튼 (호버시 표시) */}
-                  <button
-                    className="absolute top-1 right-1 p-1 bg-white shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => handlePinClick(e, image.id)}
-                  >
-                    <Pin
-                      size={12}
-                      className={pinnedImages.includes(image.id) ? 'fill-current text-blue-500' : 'text-gray-600'}
-                    />
-                  </button>
-                </div>
-              ))}
-              
-              {/* Reference 이미지 1개 */}
-              <div
-                className="relative group cursor-pointer"
-                draggable
-                onDragStart={(e) => handleImageDragStart(e, row.reference.src)}
-                onClick={() => {
-                  handleRowClick(rowIndex, row.reference.id);
-                }}
-              >
-                <div className="aspect-square bg-gray-200 overflow-hidden">
-                  <img
-                    src={row.reference.src}
-                    alt=""
-                    className="w-full h-full object-cover hover:scale-105 transition-transform"
-                  />
-                </div>
+              {row.items.map((item, itemIndex) => {
+                if (item.type === 'output') {
+                  const image = item.data;
+                  return (
+                    <div
+                      key={`output-${image.id}`}
+                      className="relative group cursor-pointer"
+                      draggable
+                      onDragStart={(e) => handleImageDragStart(e, image.src)}
+                      onClick={() => handleRowClick(rowIndex, image.id)}
+                    >
+                      <div className="aspect-square bg-gray-200 overflow-hidden">
+                        <img
+                          src={image.src}
+                          alt=""
+                          className="w-full h-full object-cover hover:scale-105 transition-transform"
+                        />
+                      </div>
+                      
+                      <button
+                        className="absolute top-1 right-1 p-1 bg-white shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => handlePinClick(e, image.id)}
+                      >
+                        <Pin
+                          size={12}
+                          className={pinnedImages.includes(image.id) ? 'fill-current text-blue-500' : 'text-gray-600'}
+                        />
+                      </button>
+                    </div>
+                  );
+                }
                 
-                {/* Reference 표시 - 좌측 상단 검정 원 */}
-                <div className="absolute top-1 left-1 w-3 h-3 bg-black rounded-full"></div>
+                if (item.type === 'reference') {
+                  const image = item.data;
+                  return (
+                    <div
+                      key={`reference-${image.id}`}
+                      className="relative group cursor-pointer"
+                      draggable
+                      onDragStart={(e) => handleImageDragStart(e, image.src)}
+                      onClick={() => handleRowClick(rowIndex, image.id)}
+                    >
+                      <div className="aspect-square bg-gray-200 overflow-hidden">
+                        <img
+                          src={image.src}
+                          alt=""
+                          className="w-full h-full object-cover hover:scale-105 transition-transform"
+                        />
+                      </div>
+                      
+                      {/* Reference 표시 - 좌측 상단 검정 원 */}
+                      <div className="absolute top-1 left-1 w-3 h-3 bg-black rounded-full"></div>
+                      
+                      <button
+                        className="absolute top-1 right-1 p-1 bg-white shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => handlePinClick(e, image.id)}
+                      >
+                        <Pin
+                          size={12}
+                          className={pinnedImages.includes(image.id) ? 'fill-current text-blue-500' : 'text-gray-600'}
+                        />
+                      </button>
+                    </div>
+                  );
+                }
                 
-                {/* 핀 버튼 */}
-                <button
-                  className="absolute top-1 right-1 p-1 bg-white shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={(e) => handlePinClick(e, row.reference.id)}
-                >
-                  <Pin
-                    size={12}
-                    className={pinnedImages.includes(row.reference.id) ? 'fill-current text-blue-500' : 'text-gray-600'}
-                  />
-                </button>
-              </div>
-              
-              {/* Keyword 박스 1개 */}
-              <div 
-                className="aspect-square flex items-center justify-center cursor-pointer transition-colors bg-transparent text-gray-800 border border-gray-300 hover:bg-gray-100"
-                draggable
-                onDragStart={(e) => handleKeywordDragStart(e, row.keyword)}
-                onClick={() => {
-                  handleRowClick(rowIndex);
-                }}
-              >
-                <span className="text-sm font-medium">{row.keyword}</span>
-              </div>
+                if (item.type === 'keyword') {
+                  const keyword = item.data;
+                  return (
+                    <div 
+                      key={`keyword-${keyword}`}
+                      className="aspect-square flex items-center justify-center cursor-pointer transition-colors bg-transparent text-gray-800 border border-gray-300 hover:bg-gray-100"
+                      draggable
+                      onDragStart={(e) => handleKeywordDragStart(e, keyword)}
+                      onClick={() => handleRowClick(rowIndex)}
+                    >
+                      <span className="text-sm font-medium">{keyword}</span>
+                    </div>
+                  );
+                }
+                
+                return null;
+              })}
             </div>
           </div>
         ))}
