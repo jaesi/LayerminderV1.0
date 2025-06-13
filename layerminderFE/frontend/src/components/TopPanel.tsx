@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import React from 'react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 interface TopPanelProps {
@@ -9,6 +10,7 @@ interface TopPanelProps {
     rowIndex: number;
     images: Array<{ id: number; src: string; isPinned: boolean }>;
     keyword: string;
+    startImageIndex?: number;
   } | null;
   generatedImages?: string[];
   onClose?: () => void;
@@ -20,8 +22,15 @@ export default function TopPanel({
   generatedImages, 
   onClose,
 }: TopPanelProps) {
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [currentImageIndex, setCurrentImageIndex] = useState(selectedRowData?.startImageIndex || 0);
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // selectedRowData가 변경되면 currentImageIndex 업데이트
+  React.useEffect(() => {
+    if (selectedRowData?.startImageIndex !== undefined) {
+      setCurrentImageIndex(selectedRowData.startImageIndex);
+    }
+  }, [selectedRowData]);
 
   // 브랜드 모드 렌더링
   const renderBrandMode = () => (

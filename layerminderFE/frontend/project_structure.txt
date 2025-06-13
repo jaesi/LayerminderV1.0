@@ -1,0 +1,58 @@
+|____next-env.d.ts
+|____project_structure.txt
+|____README.md
+|____public
+| |____file.svg
+| |____images
+| | |____generated
+| | | |____gen5.png
+| | | |____gen4.png
+| | | |____gen6.png
+| | | |____gen3.png
+| | | |____gen2.png
+| | | |____gen1.png
+| | |____.DS_Store
+| | |____references
+| | | |____ref7.jpg
+| | | |____ref6.jpg
+| | | |____ref4.jpg
+| | | |____ref5.jpg
+| | | |____ref1.jpg
+| | | |____ref2.jpg
+| | | |____ref3.jpg
+| | |____layminder.png
+| | |____logo.png
+| | |____outputs
+| | | |____output3.jpg
+| | | |____output2.jpg
+| | | |____output1.jpg
+| | | |____output5.jpg
+| | | |____output4.jpg
+| | | |____output6.jpg
+| | | |____output7.jpg
+| | | |____output8.jpg
+| |____vercel.svg
+| |____next.svg
+| |____globe.svg
+| |____window.svg
+|____.gitignore
+|____package-lock.json
+|____package.json
+|____tsconfig.json
+|____eslint.config.mjs
+|____next.config.ts
+|____src
+| |____.DS_Store
+| |____app
+| | |____favicon.ico
+| | |____layout.tsx
+| | |____page.tsx
+| | |____globals.css
+| |____components
+| | |____Gallery.tsx
+| | |____TopPanel.tsx
+| | |____Sidebar.tsx
+| | |____MainPanel.tsx
+| | |____Navigation.tsx
+| |____data
+| | |____dummyData.ts

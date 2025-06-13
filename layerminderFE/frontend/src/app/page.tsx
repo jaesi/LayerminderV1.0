@@ -11,8 +11,6 @@ import { dummyGeneratedImages } from '@/data/dummyData';
 export default function HomePage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [pinnedImages, setPinnedImages] = useState<number[]>([]);
-  const [selectedImages, setSelectedImages] = useState<string[]>([]);
-  const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   
   // TopPanel 상태 관리
   const [topPanelMode, setTopPanelMode] = useState<'brand' | 'generate' | 'details'>('brand');
@@ -20,6 +18,7 @@ export default function HomePage() {
     rowIndex: number;
     images: Array<{ id: number; src: string; isPinned: boolean }>;
     keyword: string;
+    startImageIndex?: number;
   } | null>(null);
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
 
@@ -42,28 +41,11 @@ export default function HomePage() {
     }
   };
 
-  const handleImageSelect = (imageSrc: string) => {
-    setSelectedImages(prev => {
-      if (prev.includes(imageSrc)) {
-        return prev.filter(src => src !== imageSrc);
-      }
-      return [...prev, imageSrc].slice(0, 3); // 최대 3개까지
-    });
-  };
-
-  const handleKeywordSelect = (keyword: string) => {
-    setSelectedKeywords(prev => {
-      if (prev.includes(keyword)) {
-        return prev.filter(k => k !== keyword);
-      }
-      return [...prev, keyword];
-    });
-  };
-
   const handleRowSelect = (rowData: {
     rowIndex: number;
     images: Array<{ id: number; src: string; isPinned: boolean }>;
     keyword: string;
+    startImageIndex?: number;
   }) => {
     setSelectedRowData(rowData);
     setTopPanelMode('details');
@@ -99,10 +81,6 @@ export default function HomePage() {
           {/* 메인 인터랙션 패널 */}
           <div className="w-3/10">
             <MainPanel 
-              selectedImages={selectedImages}
-              onImageSelect={handleImageSelect}
-              selectedKeywords={selectedKeywords}
-              onKeywordSelect={handleKeywordSelect}
               onGenerate={handleGenerate}
             />
           </div>
@@ -120,9 +98,6 @@ export default function HomePage() {
             <Gallery 
               onTogglePin={togglePin}
               pinnedImages={pinnedImages}
-              onImageSelect={handleImageSelect}
-              onKeywordSelect={handleKeywordSelect}
-              selectedKeywords={selectedKeywords}
               boardNames={boardNames}
               onRowSelect={handleRowSelect}
             />
