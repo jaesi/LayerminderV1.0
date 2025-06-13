@@ -152,7 +152,7 @@ export default function Gallery({
                   draggable
                   onDragStart={(e) => handleImageDragStart(e, image.src)}
                   onClick={() => {
-                    handleRowClick(rowIndex);
+                    handleRowClick(rowIndex, image.id);
                   }}
                 >
                   <div className="aspect-square bg-gray-200 overflow-hidden">
