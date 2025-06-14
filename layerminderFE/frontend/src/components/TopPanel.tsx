@@ -91,43 +91,110 @@ export default function TopPanel({
     };
 
     if (isExpanded) {
-      // 확장된 이미지 뷰
       return (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-75 flex items-center justify-center" onClick={() => setIsExpanded(false)}>
-          <div className="relative max-w-4xl max-h-4xl bg-white p-4" onClick={e => e.stopPropagation()}>
-            <button 
-              className="absolute top-2 right-2 p-2 hover:bg-gray-100 rounded"
-              onClick={() => setIsExpanded(false)}
-            >
-              <X size={24} />
-            </button>
+        <div className="grid grid-cols-6 gap-2 relative">
+          {/* 확장된 이미지 - MainPanel과 Gallery 영역을 모두 덮음 */}
+          <div 
+            className="absolute top-0 left-0 bg-gray-200 overflow-hidden z-50"
+            style={{ 
+              width: 'calc(30% + 33.333333% + 7rem)', // gap 추가
+              height: 'calc(100vh - 96px)', // TopPanel 높이를 제외한 나머지 전체 높이
+              marginLeft: 'calc(-30% - 7rem)' // MainPanel 영역만큼 왼쪽으로 이동
+            }}
+            onClick={handleImageClick}
+          >
+            <img 
+              src={currentImage} 
+              alt="" 
+              className="w-full h-full object-cover cursor-pointer"
+            />
             
-            <div className="aspect-square w-full max-w-2xl mx-auto">
+            {/* 네비게이션 버튼들 */}
+            {generatedImages.length > 1 && (
+              <>
+                <button 
+                  className="absolute left-4 top-1/2 transform -translate-y-1/2 p-2 bg-white bg-opacity-75 hover:bg-opacity-100 rounded-full shadow-lg z-10"
+                  onClick={(e) => { e.stopPropagation(); prevImage(); }}
+                >
+                  <ChevronLeft size={20} />
+                </button>
+                <button 
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 p-2 bg-white bg-opacity-75 hover:bg-opacity-100 rounded-full shadow-lg z-10"
+                  onClick={(e) => { e.stopPropagation(); nextImage(); }}
+                >
+                  <ChevronRight size={20} />
+                </button>
+              </>
+            )}
+
+            {/* 닫기 버튼 */}
+            <button 
+              className="absolute top-4 right-4 p-2 bg-white bg-opacity-75 hover:bg-opacity-100 rounded-full shadow-lg z-10"
+              onClick={(e) => { e.stopPropagation(); setIsExpanded(false); }}
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          {/* 이미지 영역 (그대로 유지) */}
+          <div className="col-span-2 relative group cursor-pointer" onClick={handleImageClick}>
+            <div className="aspect-square bg-gray-200 overflow-hidden">
               <img 
                 src={currentImage} 
                 alt="" 
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover transition-transform group-hover:scale-105"
               />
             </div>
             
-            {/* 네비게이션 버튼들 */}
-            <div className="absolute inset-y-0 left-4 flex items-center">
-              <button 
-                onClick={prevImage}
-                className="p-2 bg-white bg-opacity-75 hover:bg-opacity-100 rounded-full shadow-lg"
-              >
-                <ChevronLeft size={24} />
-              </button>
-            </div>
-            <div className="absolute inset-y-0 right-4 flex items-center">
-              <button 
-                onClick={nextImage}
-                className="p-2 bg-white bg-opacity-75 hover:bg-opacity-100 rounded-full shadow-lg"
-              >
-                <ChevronRight size={24} />
-              </button>
+            {/* 이미지 네비게이션 버튼들 */}
+            {generatedImages.length > 1 && (
+              <>
+                <button 
+                  className="absolute left-1 top-1/2 transform -translate-y-1/2 p-1 bg-white bg-opacity-75 hover:bg-opacity-100 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={(e) => { e.stopPropagation(); prevImage(); }}
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <button 
+                  className="absolute right-1 top-1/2 transform -translate-y-1/2 p-1 bg-white bg-opacity-75 hover:bg-opacity-100 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={(e) => { e.stopPropagation(); nextImage(); }}
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* 설명 영역 */}
+          <div className="col-span-4 flex flex-col justify-start pl-4">
+            <h2 className="text-lg font-light text-gray-600 leading-relaxed mb-4">
+              Generated Results
+            </h2>
+            <div className="mt-4 text-sm text-gray-700 leading-relaxed">
+              <p className="mb-2">
+                  These images have been generated based on your selected references and keywords. 
+                  Each result reflects the AI`&apos;`s interpretation of your creative direction, 
+                  combining traditional design elements with contemporary aesthetics.
+                </p>
+                <p className="mb-2">
+                  The generation process considers the visual characteristics of your input images, 
+                  the stylistic keywords you`&apos;`ve chosen, and Layer Minder`&apos;`s heritage-focused design philosophy 
+                  to create furniture concepts that bridge past and future.
+                </p>
+                <p className="mb-2">
+                  Use these generated concepts as inspiration for your next design iteration, 
+                  or select the ones that resonate most with your vision to refine further.
+                </p>
             </div>
           </div>
+
+          {/* 닫기 버튼 (우상단) */}
+          <button 
+            className="absolute top-2 right-2 p-1 hover:bg-gray-200 rounded z-10"
+            onClick={onClose}
+          >
+            <X size={16} />
+          </button>
         </div>
       );
     }
@@ -223,47 +290,131 @@ export default function TopPanel({
       setIsExpanded(!isExpanded);
     };
 
-    if (isExpanded) {
-      // 확장된 이미지 뷰 (그리드 2칸 + MainPanel 영역까지)
-      return (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-75 flex items-center justify-center" onClick={() => setIsExpanded(false)}>
-          <div className="relative max-w-4xl max-h-4xl bg-white p-4" onClick={e => e.stopPropagation()}>
+      if (isExpanded) {
+  return (
+    <div className="grid grid-cols-6 gap-2 relative">
+      {/* 확장된 이미지 - MainPanel과 Gallery 영역을 모두 덮음 */}
+      <div 
+        className="absolute top-0 left-0 bg-gray-200 overflow-hidden z-50"
+        style={{ 
+          width: 'calc(30% + 33.333333% + 7rem)', // gap 추가
+          height: 'calc(100vh - 96px)', // TopPanel 높이를 제외한 나머지 전체 높이
+          marginLeft: 'calc(-30% - 7rem)' // MainPanel 영역만큼 왼쪽으로 이동
+        }}
+        onClick={handleImageClick}
+      >
+        <img 
+          src={currentImage.src} 
+          alt="" 
+          className="w-full h-full object-cover cursor-pointer"
+        />
+        
+        {/* 네비게이션 버튼들 */}
+        {images.length > 1 && (
+          <>
             <button 
-              className="absolute top-2 right-2 p-2 hover:bg-gray-100 rounded"
-              onClick={() => setIsExpanded(false)}
+              className="absolute left-4 top-1/2 transform -translate-y-1/2 p-2 bg-white bg-opacity-75 hover:bg-opacity-100 rounded-full shadow-lg z-10"
+              onClick={(e) => { e.stopPropagation(); prevImage(); }}
             >
-              <X size={24} />
+              <ChevronLeft size={20} />
             </button>
-            
-            <div className="aspect-square w-full max-w-2xl mx-auto">
-              <img 
-                src={currentImage.src} 
-                alt="" 
-                className="w-full h-full object-cover"
-              />
-            </div>
-            
-            {/* 네비게이션 버튼들 */}
-            <div className="absolute inset-y-0 left-4 flex items-center">
-              <button 
-                onClick={prevImage}
-                className="p-2 bg-white bg-opacity-75 hover:bg-opacity-100 rounded-full shadow-lg"
-              >
-                <ChevronLeft size={24} />
-              </button>
-            </div>
-            <div className="absolute inset-y-0 right-4 flex items-center">
-              <button 
-                onClick={nextImage}
-                className="p-2 bg-white bg-opacity-75 hover:bg-opacity-100 rounded-full shadow-lg"
-              >
-                <ChevronRight size={24} />
-              </button>
-            </div>
-          </div>
+            <button 
+              className="absolute right-4 top-1/2 transform -translate-y-1/2 p-2 bg-white bg-opacity-75 hover:bg-opacity-100 rounded-full shadow-lg z-10"
+              onClick={(e) => { e.stopPropagation(); nextImage(); }}
+            >
+              <ChevronRight size={20} />
+            </button>
+          </>
+        )}
+
+        {/* 닫기 버튼 */}
+        <button 
+          className="absolute top-4 right-4 p-2 bg-white bg-opacity-75 hover:bg-opacity-100 rounded-full shadow-lg z-10"
+          onClick={(e) => { e.stopPropagation(); setIsExpanded(false); }}
+        >
+          <X size={20} />
+        </button>
+      </div>
+
+      {/* 이미지 영역 (그대로 유지) */}
+      <div className="col-span-2 relative group cursor-pointer" onClick={handleImageClick}>
+        <div className="aspect-square bg-gray-200 overflow-hidden">
+          <img 
+            src={currentImage.src} 
+            alt="" 
+            className="w-full h-full object-cover transition-transform group-hover:scale-105"
+          />
         </div>
-      );
-    }
+        
+        {/* 이미지 네비게이션 버튼들 */}
+        {images.length > 1 && (
+          <>
+            <button 
+              className="absolute left-1 top-1/2 transform -translate-y-1/2 p-1 bg-white bg-opacity-75 hover:bg-opacity-100 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={(e) => { e.stopPropagation(); prevImage(); }}
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <button 
+              className="absolute right-1 top-1/2 transform -translate-y-1/2 p-1 bg-white bg-opacity-75 hover:bg-opacity-100 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={(e) => { e.stopPropagation(); nextImage(); }}
+            >
+              <ChevronRight size={16} />
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* 설명 영역 */}
+      <div className="col-span-4 flex flex-col justify-start pl-4">
+        <h2 className="text-lg font-light text-gray-600 leading-relaxed mb-4">
+          Row {selectedRowData.rowIndex + 1} - {keyword} Collection
+        </h2>
+        <div className="mt-4 text-sm text-gray-700 leading-relaxed">
+          <p className="mb-2">
+            This collection showcases the &quot;{keyword}&quot; aesthetic through various furniture pieces. 
+            Each piece in this series embodies the core principles of {keyword.toLowerCase()} design, 
+            focusing on clean lines, functional beauty, and timeless appeal.
+          </p>
+          <p className="mb-2">
+            The {keyword.toLowerCase()} approach emphasizes the harmony between form and function, 
+            creating pieces that serve both practical and aesthetic purposes. These designs 
+            represent our commitment to sustainable and thoughtful creation.
+          </p>
+          <p className="mb-2">
+            Explore this collection to understand how traditional craftsmanship meets contemporary 
+            design philosophy, resulting in furniture that speaks to both heritage and innovation.
+          </p>
+        </div>
+        
+        {/* 키워드 태그 */}
+        <div className="flex gap-2 flex-wrap mt-4">
+          <span className="px-3 py-1 bg-gray-800 text-white text-sm rounded">
+            {keyword}
+          </span>
+          <span className="px-3 py-1 bg-gray-200 text-gray-700 text-sm rounded">
+            Modern
+          </span>
+          <span className="px-3 py-1 bg-gray-200 text-gray-700 text-sm rounded">
+            Sustainable
+          </span>
+          <span className="px-3 py-1 bg-gray-200 text-gray-700 text-sm rounded">
+            Heritage
+          </span>
+        </div>
+      </div>
+
+      {/* 닫기 버튼 (우상단) */}
+      <button 
+        className="absolute top-2 right-2 p-1 hover:bg-gray-200 rounded z-10"
+        onClick={onClose}
+      >
+        <X size={16} />
+      </button>
+    </div>
+  );
+}
+        
 
     return (
       <div className="grid grid-cols-6 gap-2 relative">
@@ -278,11 +429,11 @@ export default function TopPanel({
         {/* 이미지 영역 (클릭하면 확장) */}
         <div className="col-span-2 relative group cursor-pointer" onClick={handleImageClick}>
           <div className="aspect-square bg-gray-200 overflow-hidden">
-            <img 
-              src={currentImage.src} 
-              alt="" 
-              className="w-full h-full object-cover transition-transform group-hover:scale-105"
-            />
+          <img 
+            src={currentImage.src} 
+            alt="" 
+            className="w-full h-full object-cover transition-transform group-hover:scale-105"
+          />
           </div>
           
           {/* 이미지 네비게이션 버튼들 */}

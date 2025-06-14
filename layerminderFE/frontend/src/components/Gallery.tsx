@@ -34,7 +34,7 @@ export default function Gallery({
 
   // 시드 기반 랜덤 함수 (일관된 결과 보장)
   const seededRandom = (seed: number) => {
-    let x = Math.sin(seed) * 10000;
+    const x = Math.sin(seed) * 10000;
     return x - Math.floor(x);
   };
 
@@ -179,7 +179,7 @@ export default function Gallery({
         {rows.map((row, rowIndex) => (
           <div key={rowIndex}>
             <div className="grid grid-cols-6 gap-2">
-              {row.items.map((item, itemIndex) => {
+              {row.items.map((item, ) => {
                 if (item.type === 'output') {
                   const image = item.data;
                   return (
