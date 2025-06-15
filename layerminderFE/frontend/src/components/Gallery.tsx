@@ -6,6 +6,7 @@ import { dummyImages, keywords, boardsData } from '@/data/dummyData';
 
 interface GalleryProps {
   onTogglePin: (imageId: number, boardName?: string, createNew?: boolean) => void;
+
   pinnedImages: number[];
   boardNames: string[];
   onRowSelect: (rowData: {
@@ -19,6 +20,7 @@ interface GalleryProps {
     images: Array<{ id: number; src: string; isPinned: boolean; type: 'output' | 'reference' }>;
     keyword: string;
   }>;
+
 }
 
 export default function Gallery({ 
@@ -28,6 +30,7 @@ export default function Gallery({
   onRowSelect,
   selectedBoardId,
   generatedRows
+
 }: GalleryProps) {
   const [pinModalImageId, setPinModalImageId] = useState<number | null>(null);
   const [pinModalPosition, setPinModalPosition] = useState<{top: number, left: number, width: number, height: number} | null>(null);
@@ -140,7 +143,7 @@ export default function Gallery({
 
   const handlePinClick = (e: React.MouseEvent, imageId: number) => {
     e.stopPropagation();
-    
+  
     // 클릭된 핀 버튼에서 이미지 컨테이너 찾기
     const pinButton = e.currentTarget as HTMLElement;
     const imageContainer = pinButton.closest('.relative.group') as HTMLElement;
@@ -219,6 +222,7 @@ export default function Gallery({
 
   const handleRowClick = (rowIndex: number, clickedImageId?: number) => {
     const row = rows[rowIndex];
+
     const allImages = row.allImages;
 
     // 클릭된 이미지의 인덱스 찾기
@@ -233,6 +237,7 @@ export default function Gallery({
     // keyword 추출
     const keywordItem = row.items.find(item => item.type === 'keyword');
     const keyword = keywordItem ? keywordItem.data : '';
+
     
     onRowSelect({
       rowIndex,
