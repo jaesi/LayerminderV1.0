@@ -2,17 +2,15 @@
 
 import { useState } from 'react';
 import Navigation from '@/components/Navigation';
-import MainPanel from '@/components/MainPanel';
-import Gallery from '@/components/Gallery';
 import Sidebar from '@/components/Sidebar';
+import Gallery from '@/components/Gallery';
+import MainPanel from '@/components/MainPanel';
 import TopPanel from '@/components/TopPanel';
 import { dummyGeneratedImages } from '@/data/dummyData';
 
-export default function HomePage() {
+export default function Home() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [pinnedImages, setPinnedImages] = useState<number[]>([]);
-  
-  // TopPanel 상태 관리
   const [topPanelMode, setTopPanelMode] = useState<'brand' | 'generate' | 'details'>('brand');
   const [selectedRowData, setSelectedRowData] = useState<{
     rowIndex: number;
@@ -21,24 +19,53 @@ export default function HomePage() {
     startImageIndex?: number;
   } | null>(null);
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
+  const [selectedBoardId, setSelectedBoardId] = useState<number | null>(null);
+  const [generatedRows, setGeneratedRows] = useState<Array<{
+    images: Array<{ id: number; src: string; isPinned: boolean; type: 'output' | 'reference' }>;
+    keyword: string;
+  }>>([]);
 
-  // 보드 이름들
-  const boardNames = [
-    'Sofa', 'Lounge Chair', 'Coffee Table', 'Stool', 'Bench', 'Daybed',
-    'Console', 'Dining Table', 'Armless Chair', 'Arm Chair', 'Bar Chair',
-    'Desk', 'Storage', 'Cabinet', 'Bed Headboard', 'Mirror', 'Lighting', 'Artwork'
-  ];
+  const [boardNames, setBoardNames] = useState([
+  'Sofa', 'Lounge Chair', 'Coffee Table', 'Stool', 'Bench', 'Daybed',
+  'Console', 'Dining Table', 'Armless Chair', 'Arm Chair', 'Bar Chair',
+  'Desk', 'Storage', 'Cabinet', 'Bed Headboard', 'Mirror', 'Lighting', 'Artwork'
+]);
 
-  const togglePin = (imageId: number, boardName?: string) => {
-    setPinnedImages(prev => 
-      prev.includes(imageId) 
-        ? prev.filter(id => id !== imageId)
-        : [...prev, imageId]
-    );
-    // TODO: 실제로는 여기서 boardName에 따라 해당 보드에 이미지를 저장하는 로직 추가
-    if (boardName) {
-      console.log(`Image ${imageId} pinned to board: ${boardName}`);
+  const handleToggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+  };
+
+  const handleTogglePin = (imageId: number, boardName?: string, createNew?: boolean) => {
+    if (createNew && boardName) {
+    // 새 보드를 boardNames 배열에 추가
+    setBoardNames(prev => [...prev, boardName]);
     }
+    if (pinnedImages.includes(imageId)) {
+      setPinnedImages(prev => prev.filter(id => id !== imageId));
+    } else {
+      setPinnedImages(prev => [...prev, imageId]);
+    }
+  };
+
+  const handleGenerate = () => {
+    // AI 이미지 생성 시뮬레이션
+    const newGeneratedImages = [...dummyGeneratedImages];
+    setGeneratedImages(newGeneratedImages);
+    setTopPanelMode('generate');
+
+    // 새로 생성된 행을 Gallery에 추가
+    const newGeneratedRow = {
+      images: [
+        { id: Date.now() + 1, src: newGeneratedImages[0], isPinned: false, type: 'output' as const },
+        { id: Date.now() + 2, src: newGeneratedImages[1], isPinned: false, type: 'output' as const },
+        { id: Date.now() + 3, src: newGeneratedImages[2], isPinned: false, type: 'output' as const },
+        { id: Date.now() + 4, src: newGeneratedImages[3], isPinned: false, type: 'output' as const },
+        { id: Date.now() + 5, src: '/images/references/ref1.jpg', isPinned: false, type: 'reference' as const },
+      ],
+      keyword: 'Generated'
+    };
+
+    setGeneratedRows(prev => [newGeneratedRow, ...prev]);
   };
 
   const handleRowSelect = (rowData: {
@@ -51,56 +78,62 @@ export default function HomePage() {
     setTopPanelMode('details');
   };
 
-  const handleGenerate = () => {
-    // TODO: 실제 AI 생성 로직
-    // 임시로 더미 이미지들 사용
-    setGeneratedImages(dummyGeneratedImages);
-    setTopPanelMode('generate');
+  const handleCloseTopPanel = () => {
+    setTopPanelMode('brand');
+    setSelectedRowData(null);
+    setGeneratedImages([]);
   };
 
-  const handleTopPanelClose = () => {
+  const handleBoardSelect = (boardId: number | null) => {
+    setSelectedBoardId(boardId);
+    // 보드 선택 시 TopPanel을 브랜드 모드로 초기화
     setTopPanelMode('brand');
     setSelectedRowData(null);
     setGeneratedImages([]);
   };
 
   return (
-    <div className="min-h-screen">
-      {/* 네비게이션 바 */}
-      <Navigation onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
+    <div className="h-screen flex flex-col">
+      <Navigation onToggleSidebar={handleToggleSidebar} />
       
-      <div className="flex h-screen pt-16">
-        {/* 사이드바 */}
+      <div className="flex-1 flex pt-16 min-h-0">
         <Sidebar 
-          isOpen={isSidebarOpen}
-          pinnedImages={pinnedImages}
+          isOpen={isSidebarOpen} 
+          onBoardSelect={handleBoardSelect}
+          selectedBoardId={selectedBoardId}
         />
         
-        {/* 메인 콘텐츠 영역 */}
-        <div className={`flex flex-1 ${isSidebarOpen ? 'ml-64' : 'ml-0'}`}>
-          {/* 메인 인터랙션 패널 */}
-          <div className="w-3/10">
-            <MainPanel 
-              onGenerate={handleGenerate}
-            />
-          </div>
-          
-          {/* 갤러리 */}
-          <div className="w-7/10 flex flex-col">
-            {/* 상단 패널 (브랜드 정보 / 생성 결과 / 상세 정보) */}
-            <TopPanel
+        <div className={`flex-1 flex transition-all duration-300 min-h-0 ${
+        isSidebarOpen ? 'ml-64' : 'ml-0'
+      }`}>
+        {/* Main Panel */}
+        <div className="w-[30%] flex-shrink-0">
+          <MainPanel onGenerate={handleGenerate} />
+        </div>
+        
+        {/* Gallery Area with TopPanel */}
+        <div className="flex-1 min-w-0 flex flex-col">
+          {/* Top Panel - Gallery 영역 위쪽만 차지 */}
+          <div className="h-80 flex-shrink-0 mb-2">
+            <TopPanel 
               mode={topPanelMode}
               selectedRowData={selectedRowData}
               generatedImages={generatedImages}
-              onClose={handleTopPanelClose}
+              onClose={handleCloseTopPanel}
             />
+          </div>
             
-            <Gallery 
-              onTogglePin={togglePin}
-              pinnedImages={pinnedImages}
-              boardNames={boardNames}
-              onRowSelect={handleRowSelect}
-            />
+            {/* Gallery */}
+            <div className="flex-1 min-w-0 mt-5 overflow-y-auto">
+              <Gallery 
+                onTogglePin={handleTogglePin}
+                pinnedImages={pinnedImages}
+                boardNames={boardNames}
+                onRowSelect={handleRowSelect}
+                selectedBoardId={selectedBoardId}
+                generatedRows={generatedRows}
+              />
+            </div>
           </div>
         </div>
       </div>

@@ -67,15 +67,14 @@ export default function MainPanel({
 
         {/* Drop image 영역 */}
         <div
-          className="w-80 h-80 text-gray-800 flex items-center justify-center cursor-pointer hover:bg-gray-100 border-2 border-dashed border-gray-300"
+          className="w-80 h-80 text-gray-800 flex items-center justify-center cursor-pointer hover:bg-gray-100 "
           onClick={() => fileInputRef.current?.click()}
           onDrop={handleDrop}
           onDragOver={(e) => e.preventDefault()}
         >
           <div className="text-center">
             <div className="w-3 h-3 bg-gray-800 rounded-full mb-2 mx-auto"></div>
-            <p className="text-3xl italic font-light">Drop image</p>
-            <p className="text-sm text-gray-500 mt-2">최대 2개 이미지, 1개 키워드</p>
+            <p className="text-2xl italic font-light">Drop image</p>
           </div>
           <input
             ref={fileInputRef}

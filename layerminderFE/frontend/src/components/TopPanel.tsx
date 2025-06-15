@@ -97,7 +97,7 @@ export default function TopPanel({
           <div 
             className="absolute top-0 left-0 bg-gray-200 overflow-hidden z-50"
             style={{ 
-              width: 'calc(30% + 33.333333% + 7rem)', // gap 추가
+              width: 'calc(30% + 33.333333% + 6rem)', // gap 추가
               height: 'calc(100vh - 96px)', // TopPanel 높이를 제외한 나머지 전체 높이
               marginLeft: 'calc(-30% - 7rem)' // MainPanel 영역만큼 왼쪽으로 이동
             }}
