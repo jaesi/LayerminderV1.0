@@ -1,6 +1,6 @@
 # Pydantic 모델 정의할 곳
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime
 
 class Room(BaseModel):
@@ -18,3 +18,18 @@ class UserCreate(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer" # 기본값 
+
+# image generation api
+
+class GenerateImageRequest(BaseModel):
+    userId: str
+    inputImageId: str
+    keywords: List[str]
+    style: Optional[str] = None
+
+class GeneratedImageResponse(BaseModel):
+    imageId: str
+    s3url: str
+
+class GenerateImageResponse(BaseModel):
+    generatedImages: List[GeneratedImageResponse]

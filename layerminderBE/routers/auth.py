@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from schemas import UserCreate, UserLogin, Token
-from db import db
+from layerminderBE.firebase import db
 from auth import create_access_token, verify_token
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from passlib.context import CryptContext

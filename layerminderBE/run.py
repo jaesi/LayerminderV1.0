@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from routers.rooms import router as rooms_router
+from core.config import settings
 import uvicorn
-from dotenv import load_dotenv
-load_dotenv()
+
 
 app = FastAPI(title="LayerMinder API v1.0")
 app.include_router(rooms_router, prefix="/api/v1/rooms")

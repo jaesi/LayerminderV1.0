@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from typing import List
 from schemas import RoomCreate, Room
-from db import db
+from layerminderBE.firebase import db
 from firebase_admin import firestore
 
 

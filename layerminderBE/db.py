@@ -1,15 +1,10 @@
-# Firebase 초기화 코드 자리
+import os
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from dotenv import load_dotenv
 
-import firebase_admin
-from firebase_admin import credentials, firestore
+load_dotenv()
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# 1) 서비스 계정 키 경로
-cred = credentials.Certificate("layerminderBE/serviceAccountKey.json")
-
-# 2) 앱 초기화
-if not firebase_admin._apps:
-    # Firebase Admin SDK 초기화
-    firebase_admin.initialize_app(cred)
-
-# 3) Firestore 클라이언트 생성
-db = firestore.client()
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
