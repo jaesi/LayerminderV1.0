@@ -21,15 +21,14 @@ class Token(BaseModel):
 
 # image generation api
 
-class GenerateImageRequest(BaseModel):
-    userId: str
-    inputImageId: str
-    keywords: List[str]
-    style: Optional[str] = None
+class ImageGenerationRequest(BaseModel):
+    user_id: str
+    input_image_ids: List[str] = Field(..., min_items=1, max_items=2)
+    keyword: Optional[str] = None
 
 class GeneratedImageResponse(BaseModel):
-    imageId: str
+    image_id: str
     s3url: str
 
-class GenerateImageResponse(BaseModel):
-    generatedImages: List[GeneratedImageResponse]
+class ImageGenerationResponse(BaseModel):
+    generated_images: List[GeneratedImageResponse]

@@ -1,12 +1,10 @@
 from fastapi import APIRouter, HTTPException
 from typing import List
 from schemas import RoomCreate, Room
-from layerminderBE.firebase import db
-from firebase_admin import firestore
 
 
 # FastAPI 라우터 생성
-router = APIRouter()
+router = APIRouter(tags=["rooms"])
 
 # 방 생성
 @router.post("/", response_model=Room, status_code=201)

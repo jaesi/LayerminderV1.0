@@ -8,12 +8,6 @@ class Settings(BaseSettings):
         extra="ignore"
     )
 
-    # Stability AI
-    STABILITYAI_API_KEY: str
-
-    # OpenAI Completion
-    OPENAI_API_KEY: str
-
 
 # Instantiate settings for import everywhere
 settings = Settings()

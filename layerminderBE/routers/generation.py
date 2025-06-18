@@ -4,9 +4,9 @@ from db import SessionLocal
 from models import Image 
 from schemas import GenerateImageRequest, GenerateImageResponse, GeneratedImageResponse
 
-app = FastAPI()
+app = FastAPI(tags=['AI'])
 
-@app.post("/api/v1/images/generate", response_model=GenerateImageResponse)
+@app.post("/generate", response_model=GenerateImageResponse)
 def generate_image(req: GenerateImageRequest):
     db: Session = SessionLocal()
     # 1. inputImageId로 원본 S3 URL 찾기
