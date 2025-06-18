@@ -31,6 +31,10 @@ s3_client = boto3.client(
 
 @router.post("/upload-url", response_model=PresignedUrlResponse)
 def get_presigned_url(req: PresignedUrlRequest):
+    # checking for the super User
+    if not req.user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+
     file_ext = req.fileType.split('/')[-1]
     file_key = f"user-uploads/{req.userId}/{uuid.uuid4()}.{file_ext}"
     expires_in = 600  # 10min setting

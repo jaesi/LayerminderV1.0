@@ -2,35 +2,42 @@ from fastapi import FastAPI, HTTPException
 from sqlalchemy.orm import Session
 from db import SessionLocal
 from models import Image 
-from schemas import GenerateImageRequest, GenerateImageResponse, GeneratedImageResponse
+from schemas import ImageGenerationRequest, GeneratedImageResponse, ImageGenerationResponse
 
-app = FastAPI(tags=['AI'])
+router = FastAPI(tags=['AI'])
 
-@app.post("/generate", response_model=GenerateImageResponse)
-def generate_image(req: GenerateImageRequest):
-    db: Session = SessionLocal()
-    # 1. inputImageId로 원본 S3 URL 찾기
-    input_img = db.query(Image).filter(Image.id == req.inputImageId).first()
-    if not input_img:
-        raise HTTPException(status_code=404, detail="Input image not found")
-    
-    # 2. (여기서 AI 이미지 생성 로직 필요 - 예시는 임의의 s3url 생성)
-    # 실제론 AI 서버 연동, 생성 후 S3 업로드 및 URL 획득
-    
-    # 3. 생성 결과(여러 장)를 DB에 저장
-    result_list = []
-    for i in range(2):   # 예시로 2장
-        new_img = Image(
-            user_id=req.userId,
-            type="generated",
-            s3url=f"https://s3.../generated/{req.userId}/image_{i}.jpg",
-            file_key=f"generated/{req.userId}/image_{i}.jpg",
-            origin="generate",
-            meta={"from": req.inputImageId, "keywords": req.keywords},
-        )
-        db.add(new_img)
-        db.commit()
-        db.refresh(new_img)
-        result_list.append(GeneratedImageResponse(imageId=str(new_img.id), s3url=new_img.s3url))
-    db.close()
-    return GenerateImageResponse(generatedImages=result_list)
+def call_stability_ai(input_image_id: str, keyword: Optional[str]) -> List[dict]:
+    # 실제로는 Stability AI API 호출해서 결과 받아야 함!
+    # 여기선 임의 결과로 모킹
+    return [{
+        "imageId": f"stability_{input_image_id}_1",
+        "s3url": f"https://s3.../generated/stability_{input_image_id}_1.jpg"
+    }]
+
+def call_openai_api(input_image_ids: List[str], keyword: Optional[str]) -> List[dict]:
+    # 실제로는 OpenAI API 호출해서 결과 받아야 함!
+    # 여기선 임의 결과로 모킹
+    return [{
+        "imageId": f"openai_{input_image_ids[0]}_{input_image_ids[1]}_1",
+        "s3url": f"https://s3.../generated/openai_{input_image_ids[0]}_{input_image_ids[1]}_1.jpg"
+    }]
+
+@router.post("/generate", response_model=ImageGenerationResponse)
+def generate_images(req: ImageGenerationRequest):
+    # 1. 입력 검증
+    if not req.inputImageIds or len(req.inputImageIds) == 0:
+        raise HTTPException(400, "inputImageIds는 최소 1개 필요")
+    if len(req.inputImageIds) > 2:
+        raise HTTPException(400, "inputImageIds는 최대 2개까지만 가능")
+
+    # 2. 분기 처리
+    if len(req.inputImageIds) == 1:
+        # Stability AI 사용
+        result = call_stability_ai(req.inputImageIds[0], req.keyword)
+    else:
+        # 2개면 OpenAI 사용
+        result = call_openai_api(req.inputImageIds, req.keyword)
+
+    # 3. 응답 포맷
+    generated_images = [GeneratedImageResponse(**img) for img in result]
+    return ImageGenerationResponse(generatedImages=generated_images)
