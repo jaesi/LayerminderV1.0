@@ -19,6 +19,30 @@ class Token(BaseModel):
     access_token: str
     token_type: str = "bearer" # 기본값 
 
+# Presigned URL API
+
+class PresignedUrlRequest(BaseModel):
+    userId: str
+    fileType: str
+
+class PresignedUrlResponse(BaseModel):
+    uploadUrl: str
+    fileKey: str
+    expiresIn: int
+
+# Image meta data API
+
+class ImageCreateRequest(BaseModel):
+    user_id: str
+    file_key: str
+    type: str           # ex. "user_upload"
+    origin: str         # ex. "upload"
+    meta: Optional[dict] = None 
+
+class ImageCreateResponse(BaseModel):
+    image_id: str
+    s3url: str
+
 # image generation api
 
 class ImageGenerationRequest(BaseModel):
@@ -32,3 +56,4 @@ class GeneratedImageResponse(BaseModel):
 
 class ImageGenerationResponse(BaseModel):
     generated_images: List[GeneratedImageResponse]
+

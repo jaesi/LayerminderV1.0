@@ -1,21 +1,13 @@
 # presigned URL 발급용 API
 
 from fastapi import APIRouter
-from pydantic import BaseModel
 import boto3
 import uuid
 import os
+from schemas import PresignedUrlRequest, PresignedUrlResponse
 
 router = APIRouter(tags=["upload"])
 
-class PresignedUrlRequest(BaseModel):
-    userId: str
-    fileType: str
-
-class PresignedUrlResponse(BaseModel):
-    uploadUrl: str
-    fileKey: str
-    expiresIn: int
 
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")

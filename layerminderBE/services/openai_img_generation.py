@@ -4,9 +4,14 @@ import uuid
 import requests
 from openai import OpenAI
 import boto3
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # env setting
-OPENAI_APIKEY = os.getenv("OPENAI_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 S3_BUCKET = os.getenv("S3_BUCKET_NAME")
 S3_REGION = os.getenv("S3_REGION")
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
@@ -25,7 +30,7 @@ client = OpenAI()
 # s3 -> base64
 def s3url_to_base64(s3url: str)->str:
     response = requests.get(s3url)
-    response.raise_for_statis()
+    response.raise_for_status()
     return base64.b64encode(response.content).decode("utf-8")
 
 # base64 -> upload to S3
@@ -38,7 +43,7 @@ def upload_base64_to_s3(base64_data:str, file_key:str)->str:
         ContentType="image/png",
         ACL="public-read",
     )
-    return f"https://layerminder.s3.ap-northeast-2.amazonaws.com/{file_key}"
+    return f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{file_key}"
 
 # openai api 
 def openai_generate_image(
@@ -95,7 +100,7 @@ def openai_generate_image(
     imageId = str(uuid.uuid4())  # 예시
 
     return {
-        "imageId": imageId,
+        "image_id": imageId,
         "s3url": s3url
     }
 
@@ -104,10 +109,10 @@ if __name__ == "__main__":
     # 테스트용 샘플
     prompt = "Generate a photorealistic modern chair."
     s3_image_urls = [
-        "https://layerminder.s3.region.amazonaws.com/user-uploads/xxx/image1.png",
-        "https://layerminder.s3.region.amazonaws.com/user-uploads/xxx/image2.png",
+        "https://layerminder.s3.ap-northeast-2.amazonaws.com/KakaoTalk_20250321_231537076_01.jpg",
+        "https://layerminder.s3.ap-northeast-2.amazonaws.com/KakaoTalk_20250321_231537076_07.jpg",
     ]
-    user_id = "super-user-id"
+    user_id = "63423524-f1bc-4a01-891f-1314b7634189"
     result = openai_generate_image(prompt, s3_image_urls, user_id)
     print(result)
 
