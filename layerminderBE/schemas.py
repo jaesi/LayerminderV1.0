@@ -32,27 +32,31 @@ class PresignedUrlResponse(BaseModel):
 
 # Image meta data API
 
-class ImageCreateRequest(BaseModel):
+class ImageMetadataRequest(BaseModel):
     user_id: str
     file_key: str
     type: str           # ex. "user_upload"
-    origin: str         # ex. "upload"
     meta: Optional[dict] = None 
 
-class ImageCreateResponse(BaseModel):
+class ImageMetadataResponse(BaseModel):
+    success: bool
     image_id: str
-    s3url: str
+    created_at: str
 
 # image generation api
 
+class ImageMetaIn(BaseModel):
+    image_key: str
+    user_id: str
+
 class ImageGenerationRequest(BaseModel):
     user_id: str
-    input_image_ids: List[str] = Field(..., min_items=1, max_items=2)
+    input_image_keys: List[str] = Field(..., min_items=1, max_items=2)
     keyword: Optional[str] = None
 
 class GeneratedImageResponse(BaseModel):
     image_id: str
-    s3url: str
+    url: str
 
 class ImageGenerationResponse(BaseModel):
     generated_images: List[GeneratedImageResponse]

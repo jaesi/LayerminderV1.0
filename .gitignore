@@ -2,14 +2,12 @@ __pycache__/
 
 *.pyc
 
-# 환경변수 파일 .env, .env.dev ...
+# .env, .env.dev ...
 .env*
-
-# python 가상환경
 .venv/
 
-# firebase 계정키
-serviceAccountKey.json
-
-# 맥 생성 파일
+# mac autocreated-file
 **/.DS_Store
+
+# image generation test
+gen_test/
