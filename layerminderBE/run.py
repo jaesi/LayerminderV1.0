@@ -1,13 +1,13 @@
 from fastapi import FastAPI
-from routers.rooms import router as rooms_router
-from routers.upload import router as upload_router
-from routers.image_meta import router as image_meta_router
-from routers.generation import router as generation_router
+
 from core.config import settings
-from dotenv import load_dotenv 
 import uvicorn
 
-load_dotenv()
+# routers
+from routers.rooms import router as rooms_router
+from routers.upload import router as upload_router
+from routers.image_metadata import router as image_meta_router
+from routers.generation import router as generation_router
 
 app = FastAPI(title="LayerMinder API v1.0")
 

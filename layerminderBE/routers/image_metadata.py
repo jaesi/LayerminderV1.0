@@ -6,8 +6,12 @@ image meta data 등록하는 API
 from fastapi import APIRouter, HTTPException
 from schemas import ImageMetadataRequest, ImageMetadataResponse
 from core.supabase_client import supabase
+from core.config import settings
+
 import uuid
 from datetime import datetime, timezone
+
+STORAGE_BUCKET = settings.STORAGE_BUCKET
 
 router = APIRouter(prefix="/api/v1/image_meta", tags=["images"])
 
@@ -19,7 +23,7 @@ def create_image(req: ImageMetadataRequest):
     # Generating image_id
     image_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc).isoformat()
-    public_url = supabase.storage.from_("layerminder").get_public_url(req.image_key)["publicUrl"]
+    public_url = supabase.storage.from_(STORAGE_BUCKET).get_public_url(req.image_key)["publicUrl"]
 
     # Insert into DB
     images_row = {
