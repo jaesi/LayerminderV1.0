@@ -32,32 +32,44 @@ export default function MainPanel({
     }
   };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const files = e.dataTransfer.files;
-    const imageSrc = e.dataTransfer.getData('image/src');
-    const keyword = e.dataTransfer.getData('keyword');
-    
-    if (imageSrc && droppedFiles.length < 2) {
-      // Gallery에서 드래그한 이미지 - 현재는 URL만 있으므로 fetch로 File 객체 생성
-      // 실제로는 Gallery에서 드래그 시 더 많은 정보를 전달해야 할 수 있음
-      console.log('Gallery image dropped:', imageSrc);
-    } else if (keyword && droppedKeywords.length < 1) {
-      // Gallery에서 드래그한 키워드
-      setDroppedKeywords(prev => [...prev, keyword]);
-    } else if (files && droppedFiles.length < 2) {
-      // 파일 드롭
-      const newFiles = Array.from(files)
-        .slice(0, 2 - droppedFiles.length)
-        .map(file => ({
-          id: `file_${Date.now()}_${Math.random().toString(36).substring(7)}`,
-          file: file,
-          previewUrl: URL.createObjectURL(file)
-        }));
+  // MainPanel.tsx
+const handleDrop = async (e: React.DragEvent) => {
+  e.preventDefault();
+  const files = e.dataTransfer.files;
+  const imageSrc = e.dataTransfer.getData('image/src');
+  const keyword = e.dataTransfer.getData('keyword');
+  
+  if (imageSrc && droppedFiles.length < 2) {
+    try {
+      // 🔥 현재: 단순하게 URL을 File로 변환
+      const response = await fetch(imageSrc);
+      const blob = await response.blob();
+      const fileName = `gallery_image_${Date.now()}.jpg`;
+      const file = new File([blob], fileName, { type: blob.type });
       
-      setDroppedFiles(prev => [...prev, ...newFiles]);
+      const newDroppedFile: DroppedFile = {
+        id: `gallery_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+        file: file,
+        previewUrl: imageSrc
+      };
+      
+      setDroppedFiles(prev => [...prev, newDroppedFile]);
+    } catch (error) {
+      console.error('Failed to convert gallery image:', error);
+      alert('갤러리 이미지 변환에 실패했습니다.');
     }
-  };
+  }
+  
+  // 키워드 처리
+  else if (keyword && droppedKeywords.length < 1) {
+    setDroppedKeywords(prev => [...prev, keyword]);
+  }
+  
+  // 파일 드롭 처리
+  else if (files && droppedFiles.length < 2) {
+    // 기존 로직 그대로
+  }
+};
 
   const removeDroppedFile = (fileId: string) => {
     setDroppedFiles(prev => {

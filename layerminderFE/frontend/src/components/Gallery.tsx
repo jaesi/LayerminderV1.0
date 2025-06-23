@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react';
 import { Pin, X } from 'lucide-react';
 import { dummyImages, keywords, boardsData } from '@/data/dummyData';
+import { GeneratedRow } from '@/types';
 
 interface GalleryProps {
   onTogglePin: (imageId: number, boardName?: string, createNew?: boolean) => void;
-
   pinnedImages: number[];
   boardNames: string[];
   onRowSelect: (rowData: {
@@ -16,11 +16,7 @@ interface GalleryProps {
     startImageIndex?: number;
   }) => void;
   selectedBoardId: number | null;
-  generatedRows: Array<{
-    images: Array<{ id: number; src: string; isPinned: boolean; type: 'output' | 'reference' }>;
-    keyword: string;
-  }>;
-
+  generatedRows: GeneratedRow[];
 }
 
 export default function Gallery({ 
@@ -30,25 +26,21 @@ export default function Gallery({
   onRowSelect,
   selectedBoardId,
   generatedRows
-
 }: GalleryProps) {
   const [pinModalImageId, setPinModalImageId] = useState<number | null>(null);
   const [pinModalPosition, setPinModalPosition] = useState<{top: number, left: number, width: number, height: number} | null>(null);
   const [boardSearchTerm, setBoardSearchTerm] = useState('');
   const [isClient, setIsClient] = useState(false);
 
-  // 클라이언트 사이드에서만 랜덤 배치 활성화
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  // 시드 기반 랜덤 함수 (일관된 결과 보장)
   const seededRandom = (seed: number) => {
     const x = Math.sin(seed) * 10000;
     return x - Math.floor(x);
   };
 
-  // 배열 셔플 함수 (시드 기반)
   const shuffleArray = <T,>(array: T[], seed: number): T[] => {
     const shuffled = [...array];
     for (let i = shuffled.length - 1; i > 0; i--) {
@@ -59,12 +51,39 @@ export default function Gallery({
     return shuffled;
   };
 
-  // 보드가 선택된 경우 해당 보드의 데이터만 표시
+  // 🔥 보드별 필터링이 포함된 표시 로직
   const getDisplayRows = () => {
     if (selectedBoardId) {
+      // 특정 보드 선택 시
       const selectedBoard = boardsData.find(board => board.id === selectedBoardId);
+      
+      // 🔥 해당 보드에서 생성된 행들 필터링
+      const boardGeneratedRows = generatedRows.filter(row => row.boardId === selectedBoardId);
+      
+      const result = [];
+      
+      // 1. 생성된 행들을 먼저 추가
+      boardGeneratedRows.forEach((genRow, index) => {
+        const outputImages = genRow.images.filter(img => img.type === 'output');
+        const referenceImage = genRow.images.find(img => img.type === 'reference');
+        const keyword = genRow.keyword;
+
+        const items = [
+          ...outputImages.map(img => ({ type: 'output' as const, data: img})),
+          ...(referenceImage ? [{ type: 'reference' as const, data: referenceImage }] : []),
+          { type: 'keyword' as const, data: keyword }
+        ];
+
+        const shuffledItems = isClient ? shuffleArray(items, (selectedBoardId * 1000) + index) : items;
+        
+        result.push({
+          items: shuffledItems,
+          allImages: [...outputImages, ...(referenceImage ? [referenceImage] : [])]
+        });
+      });
+      
+      // 2. 기존 보드 데이터 추가 (있는 경우)
       if (selectedBoard) {
-        // 보드 데이터를 갤러리 형식으로 변환
         const boardImages = selectedBoard.images.filter(img => img.type === 'output');
         const boardReference = selectedBoard.images.find(img => img.type === 'reference');
         const boardKeyword = selectedBoard.keyword;
@@ -77,57 +96,57 @@ export default function Gallery({
 
         const shuffledItems = isClient ? shuffleArray(items, selectedBoardId * 1000) : items;
         
-        return [{
+        result.push({
           items: shuffledItems,
           allImages: [...boardImages, ...(boardReference ? [boardReference] : [])]
-        }];
+        });
       }
+      
+      return result;
     }
 
-    // 기본 3행 6열 구성 + 생성된 행들
+    // 보드 미선택 시: boardId가 없는 생성된 행들 + 기본 행들
     const defaultRows = [0, 1, 2].map(createDefaultRow);
-    const generatedRowsFormatted = generatedRows.map((genRow, index) => {
-      const outputImages = genRow.images.filter(img => img.type === 'output');
-      const referenceImage = genRow.images.find(img => img.type === 'reference');
-      const keyword = genRow.keyword;
+    const defaultGeneratedRows = generatedRows
+      .filter(row => !row.boardId) // 🔥 보드에 속하지 않은 것들만
+      .map((genRow, index) => {
+        const outputImages = genRow.images.filter(img => img.type === 'output');
+        const referenceImage = genRow.images.find(img => img.type === 'reference');
+        const keyword = genRow.keyword;
 
-      const items = [
-        ...outputImages.map(img => ({ type: 'output' as const, data: img})),
-        ...(referenceImage ? [{ type: 'reference' as const, data: referenceImage }] : []),
-        { type: 'keyword' as const, data: keyword }
-      ];
+        const items = [
+          ...outputImages.map(img => ({ type: 'output' as const, data: img})),
+          ...(referenceImage ? [{ type: 'reference' as const, data: referenceImage }] : []),
+          { type: 'keyword' as const, data: keyword }
+        ];
 
-      const shuffledItems = isClient ? shuffleArray(items, (index + 1000) * 1000) : items;
-      
-      return {
-        items: shuffledItems,
-        allImages: [...outputImages, ...(referenceImage ? [referenceImage] : [])]
-      };
-    });
+        const shuffledItems = isClient ? shuffleArray(items, (index + 1000) * 1000) : items;
+        
+        return {
+          items: shuffledItems,
+          allImages: [...outputImages, ...(referenceImage ? [referenceImage] : [])]
+        };
+      });
 
-    // 생성된 행들을 최상단에 배치
-    return [...generatedRowsFormatted, ...defaultRows];
+    return [...defaultGeneratedRows, ...defaultRows];
   };
   
-  // 기본 3행 6열 구성: 각 행마다 output 4개 + reference 1개 + keyword 1개
   const createDefaultRow = (rowIndex: number) => {
     const outputImages = dummyImages.outputs.slice(rowIndex * 4, (rowIndex + 1) * 4);
     const referenceImage = dummyImages.references[rowIndex] || dummyImages.references[0];
     const keyword = keywords[rowIndex] || keywords[0];
 
-    // 6개 아이템 배열로 만들고 타입 구분
     const items = [
       ...outputImages.map(img => ({ type: 'output' as const, data: img})),
       { type: 'reference' as const, data: referenceImage },
       { type: 'keyword' as const, data: keyword }
     ];
 
-    // 클라이언트에서만 랜덤하게 섞기 (시드 사용으로 일관성 보장)
     const shuffledItems = isClient ? shuffleArray(items, rowIndex * 1000) : items;
     
     return {
       items: shuffledItems,
-      allImages: [...outputImages, referenceImage] // 원본 순서 유지
+      allImages: [...outputImages, referenceImage]
     };
   };
 
@@ -144,59 +163,44 @@ export default function Gallery({
   const handlePinClick = (e: React.MouseEvent, imageId: number) => {
     e.stopPropagation();
   
-    // 클릭된 핀 버튼에서 이미지 컨테이너 찾기
     const pinButton = e.currentTarget as HTMLElement;
     const imageContainer = pinButton.closest('.relative.group') as HTMLElement;
     
     if (!imageContainer) return;
     
-    // 이미지 컨테이너의 viewport 기준 절대 위치
     const imageRect = imageContainer.getBoundingClientRect();
-    
-    // 실제 렌더링된 이미지 크기
     const actualImageSize = imageRect.width;
-    
-    // 모달 크기 (2x2 이미지 크기)
     const modalWidth = actualImageSize * 2 + 8;
     const modalHeight = actualImageSize * 2 + 8;
     
-    // 기본 위치: 이미지 좌측 (viewport 기준)
-    let modalLeft = imageRect.left; // 이미지 우측 끝
-    let modalTop = imageRect.top;    // 이미지 상단
+    let modalLeft = imageRect.left;
+    let modalTop = imageRect.top;
     
-    // 화면 경계 체크
     const windowWidth = window.innerWidth;
     const windowHeight = window.innerHeight;
     
-    // 우측 경계 체크 - 넘어가면 좌측으로
     if (modalLeft + modalWidth > windowWidth) {
-      modalLeft = imageRect.left - modalWidth; // 이미지 좌측으로
+      modalLeft = imageRect.left - modalWidth;
     }
     
-    // 좌측 경계 체크 - 넘어가면 이미지 우측으로 조정
     if (modalLeft < 0) {
       modalLeft = imageRect.right;
-      // 그래도 넘어가면 화면 내부로 강제 조정
       if (modalLeft + modalWidth > windowWidth) {
         modalLeft = windowWidth - modalWidth;
       }
     }
     
-    // 하단 경계 체크 - 넘어가면 위로 이동
     if (modalTop + modalHeight > windowHeight) {
-      modalTop = imageRect.bottom - modalHeight; // 이미지 하단에 맞춤
+      modalTop = imageRect.bottom - modalHeight;
     }
     
-    // 상단 경계 체크 - 넘어가면 하단으로 조정
     if (modalTop < 0) {
       modalTop = imageRect.bottom;
-      // 그래도 넘어가면 화면 내부로 강제 조정
       if (modalTop + modalHeight > windowHeight) {
         modalTop = windowHeight - modalHeight;
       }
     }
     
-    // 최종 안전 체크
     modalLeft = Math.max(0, Math.min(modalLeft, windowWidth - modalWidth));
     modalTop = Math.max(0, Math.min(modalTop, windowHeight - modalHeight));
     
@@ -222,10 +226,8 @@ export default function Gallery({
 
   const handleRowClick = (rowIndex: number, clickedImageId?: number) => {
     const row = rows[rowIndex];
-
     const allImages = row.allImages;
 
-    // 클릭된 이미지의 인덱스 찾기
     let startImageIndex = 0;
     if (clickedImageId) {
       const clickedIndex = allImages.findIndex(img => img.id === clickedImageId);
@@ -234,10 +236,8 @@ export default function Gallery({
       }
     }
 
-    // keyword 추출
     const keywordItem = row.items.find(item => item.type === 'keyword');
     const keyword = keywordItem ? keywordItem.data : '';
-
     
     onRowSelect({
       rowIndex,
@@ -253,25 +253,36 @@ export default function Gallery({
     setBoardSearchTerm('');
   };
 
-  // 검색된 보드 필터링
   const filteredBoards = boardNames.filter(board => 
     board.toLowerCase().includes(boardSearchTerm.toLowerCase())
   );
 
-  //  새 보드 생성 핸들러
   const handleCreateBoard = (newBoardName: string) => {
-  if (pinModalImageId !== null) {
-    // 새 보드 생성 로직을 부모 컴포넌트로 전달
-    onTogglePin(pinModalImageId, newBoardName, true); // 세 번째 매개변수로 새 보드 생성 플래그
-    setPinModalImageId(null);
-    setPinModalPosition(null);
-    setBoardSearchTerm('');
-  }
-};
+    if (pinModalImageId !== null) {
+      onTogglePin(pinModalImageId, newBoardName, true);
+      setPinModalImageId(null);
+      setPinModalPosition(null);
+      setBoardSearchTerm('');
+    }
+  };
 
   return (
     <div className="flex-1 h-full">
       <div className="px-4 pt-1 pb-4 space-y-2">
+        {/* 🔥 현재 보드 정보 표시 */}
+        {selectedBoardId && (
+          <div className="mb-4 p-2 bg-blue-50 rounded">
+            <div className="text-sm text-blue-700">
+              현재 보드: <strong>{boardNames.find((_, index) => index + 1 === selectedBoardId) || `Board ${selectedBoardId}`}</strong>
+              {generatedRows.filter(row => row.boardId === selectedBoardId).length > 0 && (
+                <span className="ml-2 text-blue-500">
+                  (생성된 이미지 {generatedRows.filter(row => row.boardId === selectedBoardId).length}개 행)
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
         {rows.map((row, rowIndex) => (
           <div key={rowIndex}>
             <div className="grid grid-cols-6 gap-2">
@@ -293,6 +304,11 @@ export default function Gallery({
                           className="w-full h-full object-cover hover:scale-105 transition-transform"
                         />
                       </div>
+                      
+                      {/* 🔥 AI 생성 이미지 표시 */}
+                      {image.imageId && (
+                        <div className="absolute top-1 left-1 w-3 h-3 bg-blue-500 rounded-full" title="AI Generated"></div>
+                      )}
                       
                       <button
                         className="absolute top-1 right-1 p-1 bg-white shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
@@ -325,7 +341,6 @@ export default function Gallery({
                         />
                       </div>
                       
-                      {/* Reference 표시 - 좌측 상단 검정 원 */}
                       <div className="absolute top-1 left-1 w-3 h-3 bg-black rounded-full"></div>
                       
                       <button
@@ -363,76 +378,72 @@ export default function Gallery({
         ))}
       </div>
 
-        {/* 핀 보드 선택 모달 - Fixed 포지셔닝 사용 */}
-    {pinModalImageId !== null && pinModalPosition && (
-      <>
-        {/* 오버레이 */}
-        <div 
-          className="fixed inset-0 z-40"
-          onClick={handleCloseModal}
-        />
-        
-        {/* 모달 - Fixed 포지셔닝으로 viewport 기준 위치, 검정 배경 */}
-        <div 
-          className="fixed z-50 bg-black bg-opacity-90 border border-gray-600 shadow-lg overflow-hidden flex flex-col text-white"
-          style={{
-            top: `${pinModalPosition.top}px`,
-            left: `${pinModalPosition.left}px`,
-            width: `${pinModalPosition.width}px`,
-            height: `${pinModalPosition.height}px`,
-          }}
-        >
-          {/* 모달 헤더 */}
-          <div className="p-2 border-b border-gray-600 flex-shrink-0 flex items-center justify-between">
-            <input
-              type="text"
-              placeholder="보드 검색..."
-              value={boardSearchTerm}
-              onChange={(e) => setBoardSearchTerm(e.target.value)}
-              className="flex-1 px-2 py-1 text-xs border border-gray-300 bg-white text-black placeholder-gray-500 focus:outline-none focus:border-gray-500"
-              autoFocus
-            />
-            <button
-              onClick={handleCloseModal}
-              className="ml-2 p-1 hover:bg-gray-700 rounded text-white"
-            >
-              <X size={12} />
-            </button>
-          </div>
+      {/* 핀 보드 선택 모달 */}
+      {pinModalImageId !== null && pinModalPosition && (
+        <>
+          <div 
+            className="fixed inset-0 z-40"
+            onClick={handleCloseModal}
+          />
           
-          {/* 보드 목록 */}
-          <div className="flex-1 overflow-y-auto">
-            <div className="p-1">
-              {filteredBoards.length > 0 ? (
-                filteredBoards.map((boardName) => (
-                  <button
-                    key={boardName}
-                    onClick={handleBoardSelect}
-                    className="w-full text-left px-2 py-1 text-xs hover:bg-gray-100 transition-colors block"
-                  >
-                    {boardName}
-                  </button>
-                ))
-              ) : (
-                <div>
-                  <div className="px-2 py-1 text-xs text-gray-500">
-                    검색 결과가 없습니다.
-                  </div>
-                  {boardSearchTerm.trim() && (
+          <div 
+            className="fixed z-50 bg-black bg-opacity-90 border border-gray-600 shadow-lg overflow-hidden flex flex-col text-white"
+            style={{
+              top: `${pinModalPosition.top}px`,
+              left: `${pinModalPosition.left}px`,
+              width: `${pinModalPosition.width}px`,
+              height: `${pinModalPosition.height}px`,
+            }}
+          >
+            <div className="p-2 border-b border-gray-600 flex-shrink-0 flex items-center justify-between">
+              <input
+                type="text"
+                placeholder="보드 검색..."
+                value={boardSearchTerm}
+                onChange={(e) => setBoardSearchTerm(e.target.value)}
+                className="flex-1 px-2 py-1 text-xs border border-gray-300 bg-white text-black placeholder-gray-500 focus:outline-none focus:border-gray-500"
+                autoFocus
+              />
+              <button
+                onClick={handleCloseModal}
+                className="ml-2 p-1 hover:bg-gray-700 rounded text-white"
+              >
+                <X size={12} />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-1">
+                {filteredBoards.length > 0 ? (
+                  filteredBoards.map((boardName) => (
                     <button
-                      onClick={() => handleCreateBoard(boardSearchTerm.trim())}
-                      className="w-full text-left px-2 py-1 text-xs hover:bg-blue-50 text-blue-600 transition-colors"
+                      key={boardName}
+                      onClick={handleBoardSelect}
+                      className="w-full text-left px-2 py-1 text-xs hover:bg-gray-100 transition-colors block"
                     >
-                      &apos;{boardSearchTerm.trim()}&apos; 보드 만들기
+                      {boardName}
                     </button>
-                  )}
-                </div>
-              )}
+                  ))
+                ) : (
+                  <div>
+                    <div className="px-2 py-1 text-xs text-gray-500">
+                      검색 결과가 없습니다.
+                    </div>
+                    {boardSearchTerm.trim() && (
+                      <button
+                        onClick={() => handleCreateBoard(boardSearchTerm.trim())}
+                        className="w-full text-left px-2 py-1 text-xs hover:bg-blue-50 text-blue-600 transition-colors"
+                      >
+                        &apos;{boardSearchTerm.trim()}&apos; 보드 만들기
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      </>
-    )}
-  </div>
-);
+        </>
+      )}
+    </div>
+  );
 }
