@@ -18,6 +18,45 @@ export interface GenerateResponse {
   };
 }
 
+// API 요청 타입들
+export interface ImageMetadataRequest {
+  user_id: string;
+  file_key: string;
+  type: string;
+  meta?: ImageMetadata;
+}
+
+export interface GenerateRequest {
+  user_id: string;
+  image_keys: string[];
+  keyword?: string;
+}
+
+// 메타데이터 타입들
+export interface ImageMetadata {
+  originalName?: string;
+  size?: number;
+  type?: string;
+  uploadedAt?: string;
+  [key: string]: unknown; // 추가 메타데이터를 위한 인덱스 시그니처
+}
+
+// 사용자 이미지 조회 응답
+export interface UserImagesResponse {
+  success: boolean;
+  images: UserImage[];
+}
+
+export interface UserImage {
+  id: string;
+  user_id: string;
+  type: string;
+  file_key: string;
+  meta: ImageMetadata | null;
+  created_at: string;
+  url: string;
+}
+
 // 드롭된 파일 타입
 export interface DroppedFile {
   id: string;
