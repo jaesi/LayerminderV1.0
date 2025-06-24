@@ -1,10 +1,10 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import APIRouter, HTTPException
 from schemas import ImageGenerationRequest, GeneratedImageResponse, ImageGenerationResponse
 from services.image_generation import generate_and_store_db
 
 import asyncio
 
-router = FastAPI(tags=['AI'])
+router = APIRouter(tags=['AI'])
 
 @router.post("/generate", response_model=ImageGenerationResponse)
 async def generate_images(req: ImageGenerationRequest):
