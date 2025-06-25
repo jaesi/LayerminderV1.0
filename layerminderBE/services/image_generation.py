@@ -11,7 +11,7 @@ from core.supabase_client import supabase
 from core.config import settings
 
 # 1. load env variables
-STORAGE_BUCKET = settings.STORAGE_BUCKET
+STORAGE_BUCKET = settings.SUPABASE_STORAGE_BUCKET
 OPENAI_API_KEY = settings.OPENAI_API_KEY
 
 # 2. Supabase & OpenAI 클라이언트
