@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_ROLE: str
     SUPABASE_STORAGE_BUCKET: str
     DATABASE_URL: str
+    REFERENCE_URL: str
+    REFERENCE_STORAGE_BUCKET: str
 
     model_config = SettingsConfigDict(
         env_file=str(Path(__file__).parent.parent/".env"),

@@ -20,7 +20,7 @@ app.include_router(generation_router, prefix="/api/v1")
 
 # middleware setting
 origins = [
-    "http://localhost:7000"
+    "http://localhost:7777"
 ]
 app.add_middleware(
     CORSMiddleware,

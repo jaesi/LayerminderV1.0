@@ -1,7 +1,14 @@
 # Pydantic 모델 정의할 곳
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional
 from datetime import datetime
+
+# sign-in, log-in
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str
+    username: str
+
 
 class Room(BaseModel):
     id: str
