@@ -3,13 +3,18 @@ from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional
 from datetime import datetime
 
-# sign-in, log-in
-class UserCreate(BaseModel):
-    email: EmailStr
-    password: str
-    username: str
+# auth
+class SocialLoginRequest(BaseModel):
+    access_token: str  # (kakao, google -> access_token/id_token)
+    
+class SocialLoginResponse(BaseModel):
+    success: bool
+    user_id: str
+    token: str  # JWT served by us
+    email: str = None
+    name: str = None
 
-
+# Room
 class Room(BaseModel):
     id: str
     title: str

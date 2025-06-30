@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     REFERENCE_URL: str
     REFERENCE_STORAGE_BUCKET: str
+    JWT_SECRET: str
 
     model_config = SettingsConfigDict(
         env_file=str(Path(__file__).parent.parent/".env"),
