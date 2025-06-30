@@ -9,6 +9,12 @@ from core.config import settings
 import csv
 import faiss
 
+'''
+This script fetches images from a Supabase storage bucket, 
+processes them using a CLIP model to generate embeddings, 
+and saves these embeddings along with their metadata in a Faiss index and a CSV file.
+'''
+
 # env setting 
 REFERENCE_URL = settings.REFERENCE_URL
 SUPABASE_KEY = settings.SUPABASE_SERVICE_ROLE
