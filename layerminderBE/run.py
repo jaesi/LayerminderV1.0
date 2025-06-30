@@ -13,7 +13,7 @@ from routers.generation import router as generation_router
 app = FastAPI(title="LayerMinder API v1.0")
 
 # router setting 
-app.include_router(rooms_router, prefix="/api/v1/rooms")
+app.include_router(rooms_router, prefix="/api/v1")
 app.include_router(upload_router, prefix="/api/v1")
 app.include_router(image_meta_router, prefix="/api/v1")
 app.include_router(generation_router, prefix="/api/v1")

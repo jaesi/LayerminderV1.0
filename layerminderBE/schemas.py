@@ -42,6 +42,7 @@ class PresignedUrlResponse(BaseModel):
 class ImageMetadataRequest(BaseModel):
     user_id: str
     file_key: str
+    image_key: str
     type: str           # ex. "user_upload"
     meta: Optional[dict] = None 
 

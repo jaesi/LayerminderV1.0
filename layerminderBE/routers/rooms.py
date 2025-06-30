@@ -7,7 +7,7 @@ from schemas import RoomCreate, Room
 router = APIRouter(tags=["rooms"])
 
 # 방 생성
-@router.post("/", response_model=Room, status_code=201)
+@router.post("/rooms", response_model=Room, status_code=201)
 async def create_room(room: RoomCreate):
     # 1) firebase에 추가
     # Firestore SDK에서 컬렉션(테이블)을 참조하는 함수
@@ -23,7 +23,7 @@ async def create_room(room: RoomCreate):
     return Room(id=ref.id, **created)
 
 # 방 정보 조회
-@router.get("/", response_model=List[Room])
+@router.get("/rooms", response_model=List[Room])
 async def list_rooms():
     rooms = []
     # 1) 컬렉션 조회
@@ -34,7 +34,7 @@ async def list_rooms():
     return rooms
 
 # 방 정보 수정
-@router.patch("/{room_id}", response_model=Room) # 엔드포인트 반환할 JSON 검증
+@router.patch("/rooms/{room_id}", response_model=Room) # 엔드포인트 반환할 JSON 검증
 async def update_room(room_id: str, room: RoomCreate):
     doc_ref = db.collection("rooms").document(room_id)
     if not doc_ref.get().exists:
@@ -47,7 +47,7 @@ async def update_room(room_id: str, room: RoomCreate):
     return Room(id=room_id, **data)
 
 # 방 정보 삭제
-@router.delete("/{room_id}", status_code=204)
+@router.delete("/rooms/{room_id}", status_code=204)
 async def delete_room(room_id: str):
     doc_ref = db.collection("rooms").document(room_id) # rooms 컬렉션 내 ID가 'room_id'인 문서 참조
     if not doc_ref.get().exists:
