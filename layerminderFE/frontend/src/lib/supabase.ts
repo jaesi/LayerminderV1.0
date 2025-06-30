@@ -77,7 +77,15 @@ export async function uploadImage(file: File, userId: string) {
     }
 
     console.log('✅ Upload successful:', data);
-    // ... 나머지 코드
+
+    const { data: urlData } = supabase.storage
+      .from('layerminder')
+      .getPublicUrl(filePath);
+
+    return {
+      fileKey: filePath,
+      publicUrl: urlData.publicUrl,
+    };
   } catch (error) {
     console.error('=== JavaScript Error ===');
     console.error('Error:', error);

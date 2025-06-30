@@ -9,8 +9,7 @@ export interface GenerateResponse {
   success: boolean;
   generated_images: Array<{
     image_id: string;
-    file_key: string;
-    public_url: string;
+    url: string;
   }>;
   metadata: {
     keyword?: string;

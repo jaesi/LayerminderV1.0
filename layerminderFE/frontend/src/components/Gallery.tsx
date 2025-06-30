@@ -51,13 +51,13 @@ export default function Gallery({
     return shuffled;
   };
 
-  // 🔥 보드별 필터링이 포함된 표시 로직
+  // 보드별 필터링이 포함된 표시 로직
   const getDisplayRows = () => {
     if (selectedBoardId) {
       // 특정 보드 선택 시
       const selectedBoard = boardsData.find(board => board.id === selectedBoardId);
       
-      // 🔥 해당 보드에서 생성된 행들 필터링
+      // 해당 보드에서 생성된 행들 필터링
       const boardGeneratedRows = generatedRows.filter(row => row.boardId === selectedBoardId);
       
       const result = [];
@@ -269,7 +269,7 @@ export default function Gallery({
   return (
     <div className="flex-1 h-full">
       <div className="px-4 pt-1 pb-4 space-y-2">
-        {/* 🔥 현재 보드 정보 표시 */}
+        {/* 현재 보드 정보 표시 */}
         {selectedBoardId && (
           <div className="mb-4 p-2 bg-blue-50 rounded">
             <div className="text-sm text-blue-700">
@@ -305,7 +305,7 @@ export default function Gallery({
                         />
                       </div>
                       
-                      {/* 🔥 AI 생성 이미지 표시 */}
+                      {/* AI 생성 이미지 표시 */}
                       {image.imageId && (
                         <div className="absolute top-1 left-1 w-3 h-3 bg-blue-500 rounded-full" title="AI Generated"></div>
                       )}

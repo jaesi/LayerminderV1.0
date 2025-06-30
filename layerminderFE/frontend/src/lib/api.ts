@@ -49,7 +49,7 @@ export async function generateImages(
       },
       body: JSON.stringify({
         user_id: userId,
-        image_keys: imageKeys,
+        input_image_keys: imageKeys,
         keyword: keyword,
       }),
     });

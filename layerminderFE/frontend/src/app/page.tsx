@@ -134,7 +134,7 @@ export default function Home() {
       console.log('✅ Images generated:', generateResult.generated_images.length);
 
       // 4. UI 업데이트
-      const newGeneratedImages = generateResult.generated_images.map(img => img.public_url);
+      const newGeneratedImages = generateResult.generated_images.map(img => img.url);
       setGeneratedImages(newGeneratedImages);
       setTopPanelMode('generate');
 
@@ -144,11 +144,11 @@ export default function Home() {
         images: [
           ...generateResult.generated_images.map((img, index) => ({
             id: Date.now() + index + 1,
-            src: img.public_url,
+            src: img.url,
             isPinned: false,
             type: 'output' as const,
             imageId: img.image_id,
-            fileKey: img.file_key
+            fileKey: undefined
           })),
           // Reference 이미지는 업로드된 첫 번째 이미지 사용
           {
