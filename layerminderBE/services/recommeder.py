@@ -64,5 +64,3 @@ def recommend_image(image_ids: list[str], top_k: int =1) -> dict:
             return {"reference": {"id": recommendation["id"], "url": recommendation["url"]}}
     
     return {"reference": None}
-
-

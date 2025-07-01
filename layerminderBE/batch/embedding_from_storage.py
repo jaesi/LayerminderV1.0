@@ -19,7 +19,7 @@ and saves these embeddings along with their metadata in a Faiss index and a CSV 
 REFERENCE_URL = settings.REFERENCE_URL
 SUPABASE_KEY = settings.SUPABASE_SERVICE_ROLE
 REFERENCE_STORAGE_BUCKET = settings.REFERENCE_STORAGE_BUCKET
-FOLDER = 'reference/' # directory name for embed
+FOLDER = 'reference/'
 
 # 1. Connect Supabase
 supabase = create_client(REFERENCE_URL, SUPABASE_KEY)
