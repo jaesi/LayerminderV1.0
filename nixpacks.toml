@@ -1,2 +1,2 @@
 [phases.setup]
-nixPkgs = ["python311", "poetry_2_1_2", "gcc"]
+nixPkgs = ["python311", "poetry_1_7_1", "gcc"]
