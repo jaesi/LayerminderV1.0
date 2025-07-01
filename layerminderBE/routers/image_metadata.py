@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 
 STORAGE_BUCKET = settings.SUPABASE_STORAGE_BUCKET
 
-router = APIRouter(prefix="/api/v1/image_meta", tags=["images"])
+router = APIRouter(tags=["images"])
 
 @router.post("/images/metadata", response_model = ImageMetadataResponse)
 def create_image(req: ImageMetadataRequest):

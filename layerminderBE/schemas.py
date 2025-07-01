@@ -1,8 +1,20 @@
 # Pydantic 모델 정의할 곳
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional
 from datetime import datetime
 
+# auth
+class SocialLoginRequest(BaseModel):
+    access_token: str  # (kakao, google -> access_token/id_token)
+    
+class SocialLoginResponse(BaseModel):
+    success: bool
+    user_id: str
+    token: str  # JWT served by us
+    email: str = None
+    name: str = None
+
+# Room
 class Room(BaseModel):
     id: str
     title: str
@@ -35,6 +47,7 @@ class PresignedUrlResponse(BaseModel):
 class ImageMetadataRequest(BaseModel):
     user_id: str
     file_key: str
+    image_key: str
     type: str           # ex. "user_upload"
     meta: Optional[dict] = None 
 

@@ -1,38 +1,32 @@
-from fastapi import APIRouter, HTTPException, Depends
-from schemas import UserCreate, UserLogin, Token
-from layerminderBE.firebase import db
-from auth import create_access_token, verify_token
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from passlib.context import CryptContext
+from fastapi import APIRouter, HTTPException
+import jwt
+from core.config import settings
+from core.supabase_client import supabase
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl = "/api/v1/auth/login")
+router = APIRouter(tags=["auth"])
 
-router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
-
-# 회원가입 엔드포인트
-@router.post("/signup", response_model=Token)
-async def signup(user: UserCreate):
-    users = db.collection("users")
-    if users.document(user.email).get().exists:
-        raise HTTPException(400, "Email already exists")
-    hashed = pwd_context.hash(user.password)
-    users.document(user.email).set({
-        "email": user.email,
-        "password": hashed
-    })
-    access_token = create_access_token({"sub": user.email})
-    return {"access_token" :access_token} 
-
-# 로그인 엔드포인트
-@router.post("/login", response_model=Token)
-async def login(form: OAuth2PasswordRequestForm = Depends()):
-    user_doc = db.collection("users").document(form.username).get()
-    if not user_doc.exists:
-        raise HTTPException(400, "Invalid credentials")
-    data = user_doc.to_dict()
-    if not pwd_context.verify(form.password, data["password"]):
-        raise HTTPException(400, "Invalid credentials")
-    access_token = create_access_token({"sub": form.username})
-    return {"access_token": access_token}
-
+@router.get("/met")
+def get_my_profile(authorization: str = Header(...)):
+    # 1) Extract real JWT from Bearer Token
+    token = authorization.replace("Bearer ", "")
+    # 2) JWT decode (supabase JWT)
+    try:
+        decoded = jwt.decode(token, options={"verify_signature": False})
+        user_id = decoded["sub"]
+    except Exception as e:
+        raise HTTPException(401, "Invalid JWT")
+    # 3) Supbase Auth users table - search user row
+    user_query = supabase.table("auth.users").select("*").eq("id", user_id).execute()
+    if not user_query.data:
+        raise HTTPException(404, "User not found")
+    user_row = user_query.data[0]
+    # put name, pictrue from user_metadata
+    meta = user_row.get("user_metadata", {})
+    return {
+        "id": user_row["id"],
+        "email": user_row["email"],
+        "provider": user_row["provider"], 
+        "name": meta.get("name"),
+        "picture": meta.get("picture"),
+        "user_metadata": meta,
+    }
