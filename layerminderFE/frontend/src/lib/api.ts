@@ -18,6 +18,7 @@ export async function saveImageMetadata(
       body: JSON.stringify({
         user_id: userId,
         file_key: fileKey,
+        image_key: fileKey,
         type: type,
         meta: meta,
       }),
