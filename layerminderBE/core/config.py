@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     SUPABASE_URL: str
     SUPABASE_SERVICE_ROLE: str
     SUPABASE_STORAGE_BUCKET: str
+    SUPABASE_JWT_SECRET: str
     DATABASE_URL: str
     REFERENCE_URL: str
     REFERENCE_STORAGE_BUCKET: str

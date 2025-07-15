@@ -1,21 +1,49 @@
-import jwt, os
-from datetime import datetime, timedelta
+from jose import jwt, JWTError
+from fastapi import Request, HTTPException, status
 
-SECRET = os.getenv("JWT_SECRET")
-if not SECRET:
-    raise RuntimeError("JWT_SECRET이 설정되지 않았습니다.")
+from core.config import settings
+
+'''
+Client's Header -> Authorization: Bearer <Token> 
+Passes: sub claim: save it to request.state_user_id 
+Not passes: 401 Unauthorized error
+'''
+
+SUPABASE_URL = settings.SUPABASE_URL
+SUPABASE_JWT_SECRET = settings.SUPABASE_JWT_SECRET
 ALGORITHM = "HS256"
-
-def create_access_token(data: dict, expires_delta: timedelta = None):
-    to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(hours=1))
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET, algorithm=ALGORITHM)
 
 def verify_token(token: str):
     try:
-        payload = jwt.decode(token, SECRET, algorithms=[ALGORITHM])
-        return payload
-    except jwt.PyJWTError:
+        payload = jwt.decode(
+            token,
+            SUPABASE_JWT_SECRET,
+            algorithms=[ALGORITHM],
+            audience="authenticated",
+            issuer=f"{SUPABASE_URL}/"
+        )
+        return payload.get("sub")
+    except JWTError:
         return None
     
+def get_current_user(request: Request):
+    '''
+    FastAPI dependency to:
+        1) Parse Bearer token from authorization header
+        2) execute verify_token to check verification
+        3) gives user_id, if fails -> 401 error
+    '''
+    auth: str = request.headers.get("Authorization") or ""
+    scheme, _, token = auth.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authorization header missing or invalid",
+        )
+    user_id = verify_token(token)
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token invalid or expired",
+        )
+    return user_id

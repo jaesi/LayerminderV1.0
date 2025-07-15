@@ -74,3 +74,11 @@ class GeneratedImageResponse(BaseModel):
 class ImageGenerationResponse(BaseModel):
     generated_images: List[GeneratedImageResponse]
 
+# Upload API
+class UploadRequest(BaseModel):
+    file_name: str
+
+class UploadResponse(BaseModel):
+    presigned_url: str
+    file_key: str
+    public_url: str
