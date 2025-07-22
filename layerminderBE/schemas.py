@@ -1,6 +1,6 @@
 # Pydantic 모델 정의할 곳
 from pydantic import BaseModel, Field, EmailStr
-from typing import List, Optional
+from typing import List, Dict, Optional, Any
 from datetime import datetime
 
 # auth
@@ -13,6 +13,12 @@ class SocialLoginResponse(BaseModel):
     token: str  # JWT served by us
     email: str = None
     name: str = None
+
+# After log-in
+class ProfileResponse(BaseModel):
+    id: str
+    email: EmailStr
+    user_metadata: Dict[str, Any]
 
 # Room
 class Room(BaseModel):

@@ -20,7 +20,7 @@ def verify_token(token: str):
             SUPABASE_JWT_SECRET,
             algorithms=[ALGORITHM],
             audience="authenticated",
-            issuer=f"{SUPABASE_URL}/"
+            issuer=f"{SUPABASE_URL}/auth/v1"
         )
         return payload.get("sub")
     except JWTError:
