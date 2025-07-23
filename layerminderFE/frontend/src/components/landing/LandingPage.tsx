@@ -1,29 +1,68 @@
-'use client';
+'use client'
 
-import { useRouter } from 'next/navigation';
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { signInWithGoogle, signInWithKakao } from '@/lib/auth'
+import { useAuth } from '@/hooks/useAuth'
 
 export default function LandingPage() {
-  const router = useRouter();
+  const router = useRouter()
+  const { user, loading } = useAuth()
+  const [isLoading, setIsLoading] = useState(false)
 
-  const handleKakaoLogin = () => {
-    // TODO: 카카오 로그인 로직 구현
-    console.log('카카오 로그인');
-    // 임시로 대시보드로 이동
-    router.push('/dashboard');
-  };
+  // 이미 로그인된 경우 대시보드로 리다이렉트
+  if (!loading && user) {
+    router.push('/dashboard')
+    return null
+  }
 
-  const handleGoogleLogin = () => {
-    // TODO: 구글 로그인 로직 구현
-    console.log('구글 로그인');
-    // 임시로 대시보드로 이동
-    router.push('/dashboard');
-  };
+  const handleKakaoLogin = async () => {
+    setIsLoading(true)
+    try {
+      const { error } = await signInWithKakao()
+      if (error) {
+        console.error('카카오 로그인 실패:', error)
+        alert('카카오 로그인에 실패했습니다. 다시 시도해주세요.')
+      }
+    } catch (error) {
+      console.error('카카오 로그인 오류:', error)
+      alert('로그인 중 오류가 발생했습니다.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleGoogleLogin = async () => {
+    setIsLoading(true)
+    try {
+      const { error } = await signInWithGoogle()
+      if (error) {
+        console.error('구글 로그인 실패:', error)
+        alert('구글 로그인에 실패했습니다. 다시 시도해주세요.')
+      }
+    } catch (error) {
+      console.error('구글 로그인 오류:', error)
+      alert('로그인 중 오류가 발생했습니다.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const handleExplore = () => {
-    // TODO: 둘러보기 기능 구현 (게스트 모드)
-    console.log('둘러보기');
-    router.push('/dashboard');
-  };
+    // 게스트 모드로 대시보드 이동
+    router.push('/dashboard?guest=true')
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#edeae3' }}>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-2 text-gray-600">로딩 중...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen flex" style={{ backgroundColor: '#edeae3' }}>
@@ -77,28 +116,41 @@ export default function LandingPage() {
 
         {/* 구분선 */}
         <div className="w-16 h-px bg-gray-400 mb-8"></div>
-
-        {/* 로그인 버튼들 */}
-        <div className="space-y-4 w-full max-w-xs">
-          {/* 카카오 로그인 */}
-          <button
-            onClick={handleKakaoLogin}
-            className="w-full bg-yellow-400 hover:bg-yellow-500 text-gray-800 font-medium py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2"
-          >
+      
+      {/* 로그인 버튼들 */}
+      <div className="space-y-4 w-full max-w-xs">
+        {/* 카카오 로그인 */}
+        <button
+          onClick={handleKakaoLogin}
+          disabled={isLoading}
+          className={`w-full bg-yellow-400 hover:bg-yellow-500 text-gray-800 font-medium py-3 px-6 transition-colors flex items-center justify-center gap-2 ${
+            isLoading ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
+        >
+          {isLoading ? (
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-800"></div>
+          ) : (
             <svg width="18" height="17" viewBox="0 0 18 17" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path 
                 d="M9 0C4.032 0 0 3.192 0 7.128c0 2.604 1.764 4.896 4.428 6.192l-1.128 4.14c-.072.264.192.48.432.348L8.4 15.372c.192.012.396.012.6.012 4.968 0 9-3.192 9-7.128S13.968 0 9 0z" 
                 fill="currentColor"
               />
             </svg>
-            카카오로 시작하기
-          </button>
+          )}
+          카카오로 시작하기
+        </button>
 
-          {/* 구글 로그인 */}
-          <button
-            onClick={handleGoogleLogin}
-            className="w-full bg-white hover:bg-gray-50 text-gray-800 font-medium py-3 px-6 rounded-lg border border-gray-300 transition-colors flex items-center justify-center gap-2"
-          >
+        {/* 구글 로그인 */}
+        <button
+          onClick={handleGoogleLogin}
+          disabled={isLoading}
+          className={`w-full bg-white hover:bg-gray-50 text-gray-800 font-medium py-3 px-6 border border-gray-300 transition-colors flex items-center justify-center gap-2 ${
+            isLoading ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
+        >
+          {isLoading ? (
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-800"></div>
+          ) : (
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path 
                 d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" 
@@ -117,28 +169,22 @@ export default function LandingPage() {
                 fill="#EA4335"
               />
             </svg>
-            Google로 시작하기
-          </button>
+          )}
+          Google로 시작하기
+        </button>
 
-          {/* 둘러보기 버튼 */}
-          <button
-            onClick={handleExplore}
-            className="w-full bg-transparent hover:bg-gray-100 text-gray-600 font-medium py-3 px-6 rounded-lg border border-gray-300 transition-colors"
-          >
-            둘러보기
-          </button>
-        </div>
-
-        {/* 하단 링크 */}
-        <div className="mt-8 text-center">
-          <a 
-            href="#" 
-            className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
-          >
-            @IG
-          </a>
-        </div>
+        {/* 둘러보기 버튼 */}
+        <button
+          onClick={handleExplore}
+          disabled={isLoading}
+          className={`w-full bg-transparent hover:bg-gray-100 text-gray-600 font-medium py-3 px-6 border border-gray-300 transition-colors ${
+            isLoading ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
+        >
+          둘러보기
+        </button>
       </div>
     </div>
-  );
+    </div>
+  )
 }

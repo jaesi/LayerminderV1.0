@@ -1,3 +1,4 @@
+// 추가: src/app/dashboard/page.tsx 업데이트 (실제 사용자 ID 사용)
 'use client';
 
 import { useState } from 'react';
@@ -10,10 +11,10 @@ import { boardsData } from '@/data/dummyData';
 import { DroppedFile, GeneratedRow, UploadedImage, ImageMetadata } from '@/types';
 import { uploadImage } from '@/lib/supabase';
 import { saveImageMetadata, generateImages } from '@/lib/api';
-
-const USER_ID = process.env.NEXT_PUBLIC_USER_ID || '63423524-f1bc-4a01-891f-1314b7634189';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function Home() {
+  const { user, profile, loading } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [pinnedImages, setPinnedImages] = useState<number[]>([]);
   const [topPanelMode, setTopPanelMode] = useState<'brand' | 'generate' | 'details'>('brand');
@@ -33,6 +34,35 @@ export default function Home() {
     'Console', 'Dining Table', 'Armless Chair', 'Arm Chair', 'Bar Chair',
     'Desk', 'Storage', 'Cabinet', 'Bed Headboard', 'Mirror', 'Lighting', 'Artwork'
   ]);
+
+  // 로딩 중이거나 로그인되지 않은 경우 처리
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center" style={{ backgroundColor: '#edeae3' }}>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-2 text-gray-600">로딩 중...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 게스트 모드가 아닌데 로그인하지 않은 경우
+  if (!user && typeof window !== 'undefined' && !window.location.search.includes('guest=true')) {
+    return (
+      <div className="h-screen flex items-center justify-center" style={{ backgroundColor: '#edeae3' }}>
+        <div className="text-center">
+          <p className="text-gray-600 mb-4">로그인이 필요합니다.</p>
+          <button 
+            onClick={() => window.location.href = '/'}
+            className="px-4 py-2 bg-gray-800 text-white hover:bg-gray-700 transition-colors"
+          >
+            로그인 페이지로 이동
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const handleToggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
@@ -62,13 +92,17 @@ export default function Home() {
       console.log('🚀 Starting generation process...', { 
         filesCount: files.length, 
         keywords, 
-        selectedBoardId 
+        selectedBoardId,
+        userId: user?.id || 'guest'
       });
+
+      // 사용자 ID 결정 (로그인된 사용자 또는 게스트)
+      const userId = user?.id || 'guest-user';
 
       // 1. 파일들을 Supabase Storage에 업로드
       console.log('📤 Uploading files to Supabase...');
       const uploadPromises = files.map(async (item): Promise<UploadedImage | null> => {
-        const uploadResult = await uploadImage(item.file, USER_ID);
+        const uploadResult = await uploadImage(item.file, userId);
         if (!uploadResult) return null;
         
         return {
@@ -92,14 +126,15 @@ export default function Home() {
       console.log('💾 Saving metadata...');
       const metadataPromises = successfulUploads.map(async (upload) => {
         const metadataResult = await saveImageMetadata(
-          USER_ID,
+          userId,
           upload.fileKey,
           'user_upload',
           { 
             originalName: upload.file.name,
             size: upload.file.size,
             type: upload.file.type,
-            uploadedAt: new Date().toISOString()
+            uploadedAt: new Date().toISOString(),
+            uploadedBy: user?.email || 'guest'
           } as ImageMetadata
         );
         
@@ -122,7 +157,7 @@ export default function Home() {
                     (selectedBoardId ? getBoardKeyword(selectedBoardId) : undefined);
 
       const generateResult = await generateImages(
-        USER_ID,
+        userId,
         metadataResults.map(r => r.fileKey),
         keyword
       );
@@ -161,11 +196,12 @@ export default function Home() {
           }
         ],
         keyword: keyword || 'Generated',
-        boardId: selectedBoardId || undefined, // 🔥 현재 선택된 보드 ID 저장
+        boardId: selectedBoardId || undefined,
         createdAt: new Date(),
         metadata: {
           inputImages: metadataResults.map(r => r.fileKey),
-          generationTime: Date.now()
+          generationTime: Date.now(),
+          generatedBy: user?.id || 'guest'
         }
       };
 
@@ -174,7 +210,8 @@ export default function Home() {
       console.log('✅ Generation complete!', { 
         boardId: selectedBoardId, 
         keyword: keyword,
-        generatedCount: generateResult.generated_images.length 
+        generatedCount: generateResult.generated_images.length,
+        userId: userId
       });
 
     } catch (error) {
@@ -256,6 +293,15 @@ export default function Home() {
           </div>
         </div>
       </div>
+      
+      {/* 사용자 정보 디버그 (개발용) */}
+      {process.env.NODE_ENV === 'development' && user && (
+        <div className="fixed bottom-4 left-4 bg-black bg-opacity-75 text-white p-2 text-xs rounded max-w-xs">
+          <div>User ID: {user.id}</div>
+          <div>Email: {user.email}</div>
+          {profile && <div>Backend Profile: ✅</div>}
+        </div>
+      )}
     </div>
   );
 }

@@ -88,6 +88,7 @@ export interface GeneratedRow {
   metadata?: {
     inputImages: string[];
     generationTime?: number;
+    generatedBy?: string; // 생성자 정보
   };
 }
 
