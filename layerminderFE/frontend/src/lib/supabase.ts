@@ -5,58 +5,6 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-export async function uploadImage(file: File, userId: string) {
-  try {
-    console.log('=== Upload Debug Info ===');
-    console.log('File info:', {
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      lastModified: file.lastModified
-    });
-    console.log('User ID:', userId);
-    console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
-    console.log('Anon Key exists:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-    console.log('Anon Key length:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.length);
-
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-    const filePath = `uploads/${userId}/${fileName}`;
-
-    console.log('Upload path:', filePath);
-    console.log('File extension:', fileExt);
-
-    const { data, error } = await supabase.storage
-      .from('layerminder')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false,
-      });
-
-    if (error) {
-      console.error('=== Supabase Upload Error ===');
-      console.error('Error object:', error);
-      console.error('Error message:', error.message);
-      return null;
-    }
-
-    console.log('✅ Upload successful:', data);
-
-    const { data: urlData } = supabase.storage
-      .from('layerminder')
-      .getPublicUrl(filePath);
-
-    return {
-      fileKey: filePath,
-      publicUrl: urlData.publicUrl,
-    };
-  } catch (error) {
-    console.error('=== JavaScript Error ===');
-    console.error('Error:', error);
-    return null;
-  }
-}
-
 // 이미지 삭제 함수
 export async function deleteImage(fileKey: string): Promise<boolean> {
   try {
@@ -72,6 +20,54 @@ export async function deleteImage(fileKey: string): Promise<boolean> {
     return true;
   } catch (error) {
     console.error('Delete error:', error);
+    return false;
+  }
+}
+
+// 유틸리티 함수들
+export async function getCurrentSession() {
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    return session;
+  } catch (error) {
+    console.error('Get session error:', error);
+    return null;
+  }
+}
+
+export async function getCurrentUser() {
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error) throw error;
+    return user;
+  } catch (error) {
+    console.error('Get user error:', error);
+    return null;
+  }
+}
+
+// Storage URL 헬퍼 함수 
+export function getPublicUrl(path: string): string {
+  const { data } = supabase.storage
+    .from('layerminder')
+    .getPublicUrl(path);
+  
+  return data.publicUrl;
+}
+
+// 파일 존재 여부 확인
+export async function fileExists(path: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.storage
+      .from('layerminder')
+      .list(path.substring(0, path.lastIndexOf('/')), {
+        search: path.substring(path.lastIndexOf('/') + 1)
+      });
+
+    return !error && data && data.length > 0;
+  } catch (error) {
+    console.error('File exists check error:', error);
     return false;
   }
 }

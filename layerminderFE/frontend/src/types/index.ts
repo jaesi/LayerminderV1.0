@@ -17,10 +17,23 @@ export interface GenerateResponse {
   };
 }
 
-// API 요청 타입들
-export interface ImageMetadataRequest {
-  user_id: string;
+// 새로운 업로드 관련 타입들
+export interface UploadUrlResponse {
+  success: boolean;
+  upload_url: string;
+  public_url: string;
   file_key: string;
+  expires: number;
+}
+
+export interface UploadUrlRequest {
+  file_name: string;
+  file_type: string;
+}
+
+// API 요청 타입들 (수정됨)
+export interface ImageMetadataRequest {
+  url: string;  // 변경: file_key 대신 public_url 사용
   type: string;
   meta?: ImageMetadata;
 }
@@ -31,12 +44,15 @@ export interface GenerateRequest {
   keyword?: string;
 }
 
-// 메타데이터 타입들
+// 메타데이터 타입들 (확장됨)
 export interface ImageMetadata {
   originalName?: string;
   size?: number;
   type?: string;
   uploadedAt?: string;
+  uploadedBy?: string;
+  boardId?: string;
+  keywords?: string[];
   [key: string]: unknown; // 추가 메타데이터를 위한 인덱스 시그니처
 }
 
@@ -71,7 +87,14 @@ export interface UploadedImage {
   file: File;
 }
 
-// 생성된 행 타입 (확장)
+// 새로운 통합 업로드 결과 타입
+export interface UploadResult {
+  imageId: string;
+  publicUrl: string;
+  fileKey: string;
+}
+
+// 생성된 행 타입
 export interface GeneratedRow {
   id: string;
   images: Array<{ 
@@ -106,3 +129,18 @@ export interface BoardData {
   }>;
   keyword: string;
 }
+
+// 에러 처리를 위한 타입들
+export interface ApiError {
+  success: false;
+  error: string;
+  code?: string;
+  details?: unknown;
+}
+
+export interface ApiSuccess<T = unknown> {
+  success: true;
+  data: T;
+}
+
+export type ApiResponse<T = unknown> = ApiSuccess<T> | ApiError;

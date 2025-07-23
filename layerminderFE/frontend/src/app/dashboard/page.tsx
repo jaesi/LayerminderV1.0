@@ -1,4 +1,3 @@
-// 추가: src/app/dashboard/page.tsx 업데이트 (실제 사용자 ID 사용)
 'use client';
 
 import { useState } from 'react';
@@ -8,9 +7,8 @@ import Gallery from '@/components/dashboard/Gallery';
 import MainPanel from '@/components/dashboard/MainPanel';
 import TopPanel from '@/components/dashboard/TopPanel';
 import { boardsData } from '@/data/dummyData';
-import { DroppedFile, GeneratedRow, UploadedImage, ImageMetadata } from '@/types';
-import { uploadImage } from '@/lib/supabase';
-import { saveImageMetadata, generateImages } from '@/lib/api';
+import { DroppedFile, GeneratedRow, ImageMetadata } from '@/types';
+import { uploadImageWithMetadata, generateImages } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function Home() {
@@ -99,14 +97,25 @@ export default function Home() {
       // 사용자 ID 결정 (로그인된 사용자 또는 게스트)
       const userId = user?.id || 'guest-user';
 
-      // 1. 파일들을 Supabase Storage에 업로드
-      console.log('📤 Uploading files to Supabase...');
-      const uploadPromises = files.map(async (item): Promise<UploadedImage | null> => {
-        const uploadResult = await uploadImage(item.file, userId);
-        if (!uploadResult) return null;
+      // 1. 새로운 업로드 방식: Presigned URL 사용
+      console.log('📤 Uploading files using presigned URLs...');
+      const uploadPromises = files.map(async (item) => {
+        const uploadResult = await uploadImageWithMetadata(
+          item.file,
+          'input', // type
+          { 
+            uploadedBy: user?.email || 'guest',
+            boardId: selectedBoardId?.toString(),
+            keywords: keywords
+          } as ImageMetadata
+        );
+        
+        if (!uploadResult) {
+          throw new Error(`업로드 실패: ${item.file.name}`);
+        }
         
         return {
-          imageId: '', // 아직 없음, 메타데이터 저장 후 받음
+          imageId: uploadResult.imageId,
           fileKey: uploadResult.fileKey,
           publicUrl: uploadResult.publicUrl,
           file: item.file
@@ -114,51 +123,16 @@ export default function Home() {
       });
 
       const uploadResults = await Promise.all(uploadPromises);
-      const successfulUploads = uploadResults.filter((result): result is UploadedImage => result !== null);
-      
-      if (successfulUploads.length === 0) {
-        throw new Error('모든 파일 업로드에 실패했습니다.');
-      }
+      console.log('✅ All files uploaded successfully:', uploadResults.length);
 
-      console.log('✅ Files uploaded:', successfulUploads.length);
-
-      // 2. 각 업로드된 파일의 메타데이터를 백엔드에 저장
-      console.log('💾 Saving metadata...');
-      const metadataPromises = successfulUploads.map(async (upload) => {
-        const metadataResult = await saveImageMetadata(
-          userId,
-          upload.fileKey,
-          'user_upload',
-          { 
-            originalName: upload.file.name,
-            size: upload.file.size,
-            type: upload.file.type,
-            uploadedAt: new Date().toISOString(),
-            uploadedBy: user?.email || 'guest'
-          } as ImageMetadata
-        );
-        
-        if (!metadataResult) {
-          throw new Error(`메타데이터 저장 실패: ${upload.fileKey}`);
-        }
-
-        return {
-          ...upload,
-          imageId: metadataResult.image_id
-        };
-      });
-
-      const metadataResults = await Promise.all(metadataPromises);
-      console.log('✅ Metadata saved:', metadataResults.length);
-
-      // 3. Generate API 호출
+      // 2. Generate API 호출
       console.log('🎨 Calling generate API...');
       const keyword = keywords.length > 0 ? keywords[0] : 
                     (selectedBoardId ? getBoardKeyword(selectedBoardId) : undefined);
 
       const generateResult = await generateImages(
         userId,
-        metadataResults.map(r => r.fileKey),
+        uploadResults.map(r => r.fileKey),
         keyword
       );
 
@@ -168,12 +142,12 @@ export default function Home() {
 
       console.log('✅ Images generated:', generateResult.generated_images.length);
 
-      // 4. UI 업데이트
+      // 3. UI 업데이트
       const newGeneratedImages = generateResult.generated_images.map(img => img.url);
       setGeneratedImages(newGeneratedImages);
       setTopPanelMode('generate');
 
-      // 5. Gallery에 새로운 생성 행 추가 (보드 정보 포함)
+      // 4. Gallery에 새로운 생성 행 추가 (보드 정보 포함)
       const newGeneratedRow: GeneratedRow = {
         id: `generated_${Date.now()}`,
         images: [
@@ -188,18 +162,18 @@ export default function Home() {
           // Reference 이미지는 업로드된 첫 번째 이미지 사용
           {
             id: Date.now() + 1000,
-            src: metadataResults[0].publicUrl,
+            src: uploadResults[0].publicUrl,
             isPinned: false,
             type: 'reference' as const,
-            imageId: metadataResults[0].imageId,
-            fileKey: metadataResults[0].fileKey
+            imageId: uploadResults[0].imageId,
+            fileKey: uploadResults[0].fileKey
           }
         ],
         keyword: keyword || 'Generated',
         boardId: selectedBoardId || undefined,
         createdAt: new Date(),
         metadata: {
-          inputImages: metadataResults.map(r => r.fileKey),
+          inputImages: uploadResults.map(r => r.fileKey),
           generationTime: Date.now(),
           generatedBy: user?.id || 'guest'
         }
@@ -300,6 +274,7 @@ export default function Home() {
           <div>User ID: {user.id}</div>
           <div>Email: {user.email}</div>
           {profile && <div>Backend Profile: ✅</div>}
+          <div className="text-green-400">Upload: Presigned URL ✅</div>
         </div>
       )}
     </div>

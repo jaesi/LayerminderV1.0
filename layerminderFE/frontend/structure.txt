@@ -1,65 +1,69 @@
-├── ./package-lock.json
-├── ./package.json
-├── ./postcss.config.mjs
-├── ./public
-│   ├── ./public/file.svg
-│   ├── ./public/globe.svg
-│   ├── ./public/images
-│   │   ├── ./public/images/generated
-│   │   │   ├── ./public/images/generated/gen1.png
-│   │   │   ├── ./public/images/generated/gen2.png
-│   │   │   ├── ./public/images/generated/gen3.png
-│   │   │   ├── ./public/images/generated/gen4.png
-│   │   │   ├── ./public/images/generated/gen5.png
-│   │   │   └── ./public/images/generated/gen6.png
-│   │   ├── ./public/images/layminder.png
-│   │   ├── ./public/images/layminder2.png
-│   │   ├── ./public/images/logo.png
-│   │   ├── ./public/images/logo2.png
-│   │   ├── ./public/images/outputs
-│   │   │   ├── ./public/images/outputs/output1.jpg
-│   │   │   ├── ./public/images/outputs/output2.jpg
-│   │   │   ├── ./public/images/outputs/output3.jpg
-│   │   │   ├── ./public/images/outputs/output4.jpg
-│   │   │   ├── ./public/images/outputs/output5.jpg
-│   │   │   ├── ./public/images/outputs/output6.jpg
-│   │   │   ├── ./public/images/outputs/output7.jpg
-│   │   │   └── ./public/images/outputs/output8.jpg
-│   │   └── ./public/images/references
-│   │       ├── ./public/images/references/ref1.jpg
-│   │       ├── ./public/images/references/ref2.jpg
-│   │       ├── ./public/images/references/ref3.jpg
-│   │       ├── ./public/images/references/ref4.jpg
-│   │       ├── ./public/images/references/ref5.jpg
-│   │       ├── ./public/images/references/ref6.jpg
-│   │       └── ./public/images/references/ref7.jpg
-│   ├── ./public/next.svg
-│   ├── ./public/vercel.svg
-│   └── ./public/window.svg
-├── ./src
-│   ├── ./src/app
-│   │   ├── ./src/app/dashboard
-│   │   │   └── ./src/app/dashboard/page.tsx
-│   │   ├── ./src/app/globals.css
-│   │   ├── ./src/app/layout.tsx
-│   │   └── ./src/app/page.tsx
-│   ├── ./src/components
-│   │   ├── ./src/components/dashboard
-│   │   │   ├── ./src/components/dashboard/Gallery.tsx
-│   │   │   ├── ./src/components/dashboard/MainPanel.tsx
-│   │   │   ├── ./src/components/dashboard/Navigation.tsx
-│   │   │   ├── ./src/components/dashboard/Sidebar.tsx
-│   │   │   └── ./src/components/dashboard/TopPanel.tsx
-│   │   └── ./src/components/landing
-│   │       └── ./src/components/landing/LandingPage.tsx
-│   ├── ./src/data
-│   │   └── ./src/data/dummyData.ts
-│   ├── ./src/lib
-│   │   ├── ./src/lib/api.ts
-│   │   └── ./src/lib/supabase.ts
-│   └── ./src/types
-│       └── ./src/types/index.ts
-├── ./structure.txt
-└── ./tsconfig.json
+├── package-lock.json
+├── package.json
+├── postcss.config.mjs
+├── public
+│   ├── file.svg
+│   ├── globe.svg
+│   ├── images
+│   │   ├── generated
+│   │   │   ├── gen1.png
+│   │   │   ├── gen2.png
+│   │   │   ├── gen3.png
+│   │   │   ├── gen4.png
+│   │   │   ├── gen5.png
+│   │   │   └── gen6.png
+│   │   ├── layminder.png
+│   │   ├── layminder2.png
+│   │   ├── logo.png
+│   │   ├── logo2.png
+│   │   ├── outputs
+│   │   │   ├── output1.jpg
+│   │   │   ├── output2.jpg
+│   │   │   ├── output3.jpg
+│   │   │   ├── output4.jpg
+│   │   │   ├── output5.jpg
+│   │   │   ├── output6.jpg
+│   │   │   ├── output7.jpg
+│   │   │   └── output8.jpg
+│   │   └── references
+│   │       ├── ref1.jpg
+│   │       ├── ref2.jpg
+│   │       ├── ref3.jpg
+│   │       ├── ref4.jpg
+│   │       ├── ref5.jpg
+│   │       ├── ref6.jpg
+│   │       └── ref7.jpg
+│   ├── next.svg
+│   ├── vercel.svg
+│   └── window.svg
+├── src
+│   ├── app
+│   │   ├── dashboard
+│   │   │   └── page.tsx
+│   │   ├── globals.css
+│   │   ├── layout.tsx
+│   │   └── page.tsx
+│   ├── components
+│   │   ├── dashboard
+│   │   │   ├── Gallery.tsx
+│   │   │   ├── MainPanel.tsx
+│   │   │   ├── Navigation.tsx
+│   │   │   ├── Sidebar.tsx
+│   │   │   └── TopPanel.tsx
+│   │   └── landing
+│   │       └── LandingPage.tsx
+│   ├── data
+│   │   └── dummyData.ts
+│   ├── hooks
+│   │   └── useAuth.tsx
+│   ├── lib
+│   │   ├── api.ts
+│   │   ├── auth.ts
+│   │   └── supabase.ts
+│   ├── middleware.ts
+│   └── types
+│       └── index.ts
+├── structure.txt
+└── tsconfig.json
 
-1892 directories, 22820 files
+1893 directories, 22823 files
