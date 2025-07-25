@@ -1,0 +1,69 @@
+├── package-lock.json
+├── package.json
+├── postcss.config.mjs
+├── public
+│   ├── file.svg
+│   ├── globe.svg
+│   ├── images
+│   │   ├── generated
+│   │   │   ├── gen1.png
+│   │   │   ├── gen2.png
+│   │   │   ├── gen3.png
+│   │   │   ├── gen4.png
+│   │   │   ├── gen5.png
+│   │   │   └── gen6.png
+│   │   ├── layminder.png
+│   │   ├── layminder2.png
+│   │   ├── logo.png
+│   │   ├── logo2.png
+│   │   ├── outputs
+│   │   │   ├── output1.jpg
+│   │   │   ├── output2.jpg
+│   │   │   ├── output3.jpg
+│   │   │   ├── output4.jpg
+│   │   │   ├── output5.jpg
+│   │   │   ├── output6.jpg
+│   │   │   ├── output7.jpg
+│   │   │   └── output8.jpg
+│   │   └── references
+│   │       ├── ref1.jpg
+│   │       ├── ref2.jpg
+│   │       ├── ref3.jpg
+│   │       ├── ref4.jpg
+│   │       ├── ref5.jpg
+│   │       ├── ref6.jpg
+│   │       └── ref7.jpg
+│   ├── next.svg
+│   ├── vercel.svg
+│   └── window.svg
+├── src
+│   ├── app
+│   │   ├── dashboard
+│   │   │   └── page.tsx
+│   │   ├── globals.css
+│   │   ├── layout.tsx
+│   │   └── page.tsx
+│   ├── components
+│   │   ├── dashboard
+│   │   │   ├── Gallery.tsx
+│   │   │   ├── MainPanel.tsx
+│   │   │   ├── Navigation.tsx
+│   │   │   ├── Sidebar.tsx
+│   │   │   └── TopPanel.tsx
+│   │   └── landing
+│   │       └── LandingPage.tsx
+│   ├── data
+│   │   └── dummyData.ts
+│   ├── hooks
+│   │   └── useAuth.tsx
+│   ├── lib
+│   │   ├── api.ts
+│   │   ├── auth.ts
+│   │   └── supabase.ts
+│   ├── middleware.ts
+│   └── types
+│       └── index.ts
+├── structure.txt
+└── tsconfig.json
+
+1893 directories, 22823 files
