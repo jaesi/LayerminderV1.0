@@ -7,11 +7,12 @@ import uvicorn
 
 from core.config import settings
 # routers
-from routers.rooms import router as rooms_router
+from routers.history import router as history_router
 from routers.image_metadata import router as image_meta_router
 from routers.generation import router as generation_router
 from routers.upload import router as upload_router
 from routers.auth import router as auth_router
+
 
 app = FastAPI(title="LayerMinder API v1.0")
 
@@ -20,7 +21,7 @@ bearer_scheme = HTTPBearer(bearerFormat="JWT", scheme_name="bearerAuth")
 
 # router setting 
 app.include_router(auth_router, prefix="/api/v1")
-app.include_router(rooms_router, prefix="/api/v1")
+app.include_router(history_router, prefix="/api/v1")
 app.include_router(image_meta_router, prefix="/api/v1")
 app.include_router(generation_router, prefix="/api/v1")
 app.include_router(upload_router, prefix="/api/v1")

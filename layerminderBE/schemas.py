@@ -20,6 +20,13 @@ class ProfileResponse(BaseModel):
     email: EmailStr
     user_metadata: Dict[str, Any]
 
+
+# History
+class HistorySession(BaseModel):
+    id: str
+    user_id: str
+    created_at: str
+
 # Room
 class Room(BaseModel):
     id: str
