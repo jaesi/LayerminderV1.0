@@ -5,54 +5,59 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// ✅ 이 방식이 작동합니다 (백엔드 개발자 제안)
+/**
+ * 프론트엔드에서 Supabase Storage에 직접 업로드
+ * 백엔드 개발자 제안: presigned URL 없이 SDK로 직접 업로드
+ */
 export async function uploadImageDirect(file: File, userId: string) {
   try {
-    console.log('=== Direct Upload to Supabase ===');
-    console.log('File:', file.name, file.size, file.type);
+    console.log('🚀 Direct upload to Supabase Storage');
+    console.log('File:', file.name, `(${(file.size / 1024).toFixed(1)}KB)`);
     console.log('User ID:', userId);
 
+    // 고유한 파일명 생성
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
     const filePath = `uploads/${userId}/${fileName}`;
 
     console.log('Upload path:', filePath);
 
-    // 🔥 핵심: 프론트엔드에서 직접 Supabase Storage에 업로드
+    // ✅ SDK를 통한 직접 업로드 (백엔드 개발자 제안 방식)
     const { data, error } = await supabase.storage
-      .from('layerminder') // 버킷 이름 확인 필요
+      .from('layerminder') // 버킷 이름
       .upload(filePath, file, {
         cacheControl: '3600',
         upsert: false,
       });
 
     if (error) {
-      console.error('=== Supabase Direct Upload Error ===');
-      console.error('Error:', error);
-      return null;
+      console.error('❌ Supabase upload error:', error);
+      throw new Error(`Upload failed: ${error.message}`);
     }
 
-    console.log('✅ Direct upload successful:', data);
+    console.log('✅ Upload successful:', data);
 
     // 공개 URL 생성
     const { data: urlData } = supabase.storage
       .from('layerminder')
       .getPublicUrl(filePath);
 
-    return {
+    const result = {
       fileKey: filePath,
       publicUrl: urlData.publicUrl,
-      uploadMethod: 'direct_supabase'
+      uploadMethod: 'direct_supabase_sdk'
     };
 
+    console.log('✅ Upload result:', result);
+    return result;
+
   } catch (error) {
-    console.error('=== Direct Upload Error ===');
-    console.error('Error:', error);
+    console.error('❌ Direct upload failed:', error);
     return null;
   }
 }
 
-// 이미지 삭제 함수
+// 파일 삭제 (기존 유지)
 export async function deleteImage(fileKey: string): Promise<boolean> {
   try {
     const { error } = await supabase.storage
@@ -71,7 +76,7 @@ export async function deleteImage(fileKey: string): Promise<boolean> {
   }
 }
 
-// 유틸리티 함수들
+// 유틸리티 함수들 (기존 유지)
 export async function getCurrentSession() {
   try {
     const { data: { session }, error } = await supabase.auth.getSession();
@@ -94,27 +99,11 @@ export async function getCurrentUser() {
   }
 }
 
-// Storage URL 헬퍼 함수 
+// Storage URL 헬퍼 함수
 export function getPublicUrl(path: string): string {
   const { data } = supabase.storage
     .from('layerminder')
     .getPublicUrl(path);
   
   return data.publicUrl;
-}
-
-// 파일 존재 여부 확인
-export async function fileExists(path: string): Promise<boolean> {
-  try {
-    const { data, error } = await supabase.storage
-      .from('layerminder')
-      .list(path.substring(0, path.lastIndexOf('/')), {
-        search: path.substring(path.lastIndexOf('/') + 1)
-      });
-
-    return !error && data && data.length > 0;
-  } catch (error) {
-    console.error('File exists check error:', error);
-    return false;
-  }
 }

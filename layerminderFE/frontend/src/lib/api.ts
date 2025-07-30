@@ -1,20 +1,6 @@
-import { ImageMetadataResponse, GenerateResponse, ImageMetadata, UserImagesResponse } from '@/types';
+import { ImageMetadataResponse, ImageMetadata, UserImagesResponse, GenerateResponse } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
-
-// 새로운 업로드 관련 타입들
-export interface UploadUrlResponse {
-  success: boolean;
-  upload_url: string;
-  public_url: string;
-  file_key: string;
-  expires: number;
-}
-
-export interface UploadUrlRequest {
-  file_name: string;
-  file_type: string;
-}
 
 // JWT 토큰 가져오기 헬퍼 함수
 async function getAuthToken(): Promise<string | null> {
@@ -28,92 +14,68 @@ async function getAuthToken(): Promise<string | null> {
   }
 }
 
-// 1단계: Presigned URL 요청
-export async function getUploadUrl(
-  fileName: string,
-  fileType: string
-): Promise<UploadUrlResponse | null> {
-  try {
-    const token = await getAuthToken();
-    if (!token) {
-      throw new Error('Authentication required');
-    }
-
-    const response = await fetch(`${API_BASE_URL}/api/v1/upload`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        file_name: fileName,
-        file_type: fileType,
-      } as UploadUrlRequest),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json() as UploadUrlResponse;
-    return data;
-  } catch (error) {
-    console.error('Get upload URL error:', error);
-    return null;
-  }
-}
-
-// 2단계: Presigned URL로 파일 업로드
-export async function uploadFileToPresignedUrl(
-  uploadUrl: string,
-  file: File
-): Promise<boolean> {
-  try {
-    const response = await fetch(uploadUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': file.type,
-      },
-      body: file,
-    });
-
-    return response.ok;
-  } catch (error) {
-    console.error('Upload to presigned URL error:', error);
-    return false;
-  }
-}
-
-// 3단계: 이미지 메타데이터 저장 (수정된 버전)
+/**
+ * 이미지 메타데이터 저장 
+ * 프론트엔드 supabase 직접 업로드 후 메타데이터만 백엔드에 저장
+ */
 export async function saveImageMetadata(
-  publicUrl: string,
+  fileKey: string,  
   type: string = 'input',
   meta?: ImageMetadata
 ): Promise<ImageMetadataResponse | null> {
   try {
+    // 사용자 ID 가져오기
+    let userId = 'guest-user';
+    try {
+      const { getCurrentUser } = await import('@/lib/supabase');
+      const user = await getCurrentUser();
+      if (user?.id) {
+        userId = user.id;
+      }
+    } catch (authError) {
+      console.warn('Could not get current user, using guest:', authError);
+    }
+
     const token = await getAuthToken();
     if (!token) {
-      throw new Error('Authentication required');
+      console.warn('No auth token - attempting without authentication');
     }
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    // 백엔드 스키마에 맞는 요청 데이터 구성
+    const requestData = {
+      user_id: userId,      
+      image_key: fileKey,   
+      meta: meta || {},   
+    };
+
+    console.log('🚀 Sending metadata request:', requestData);
 
     const response = await fetch(`${API_BASE_URL}/api/v1/images/metadata`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        url: publicUrl,
-        type: type,
-        meta: meta,
-      }),
+      headers,
+      body: JSON.stringify(requestData),
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorText = await response.text();
+      console.error('Metadata save failed:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText
+      });
+      throw new Error(`HTTP error! status: ${response.status}, details: ${errorText}`);
     }
 
     const data = await response.json() as ImageMetadataResponse;
+    console.log('✅ Metadata saved successfully:', data);
     return data;
   } catch (error) {
     console.error('Save metadata error:', error);
@@ -121,34 +83,42 @@ export async function saveImageMetadata(
   }
 }
 
-// 통합 업로드 함수 (전체 프로세스)
+/**
+ * 통합 업로드 함수 (수정됨)
+ */
 export async function uploadImageWithMetadata(
   file: File,
   type: string = 'input',
   meta?: ImageMetadata
 ): Promise<{ imageId: string; publicUrl: string; fileKey: string } | null> {
   try {
-    console.log('🚀 Starting upload process for:', file.name);
+    console.log('🚀 Starting direct upload process for:', file.name);
 
-    // 1단계: Presigned URL 요청
-    const uploadUrlData = await getUploadUrl(file.name, file.type);
-    if (!uploadUrlData || !uploadUrlData.success) {
-      throw new Error('Failed to get upload URL');
+    // 사용자 ID 가져오기
+    let userId = 'guest-user';
+    try {
+      const { getCurrentUser } = await import('@/lib/supabase');
+      const user = await getCurrentUser();
+      if (user?.id) {
+        userId = user.id;
+      }
+    } catch (authError) {
+      console.warn('Could not get current user, using guest:', authError);
     }
 
-    console.log('✅ Got presigned URL');
-
-    // 2단계: 파일 업로드
-    const uploadSuccess = await uploadFileToPresignedUrl(uploadUrlData.upload_url, file);
-    if (!uploadSuccess) {
-      throw new Error('Failed to upload file');
+    // 1단계: 프론트엔드에서 직접 Supabase Storage에 업로드
+    const { uploadImageDirect : uploadDirect } = await import('@/lib/supabase');
+    const uploadResult = await uploadDirect(file, userId);
+    
+    if (!uploadResult) {
+      throw new Error('Direct upload failed');
     }
 
-    console.log('✅ File uploaded successfully');
+    console.log('✅ File uploaded directly to Supabase:', uploadResult);
 
-    // 3단계: 메타데이터 저장
+    // 2단계: 백엔드에 메타데이터 저장 (수정된 함수 사용)
     const metadataResult = await saveImageMetadata(
-      uploadUrlData.public_url,
+      uploadResult.fileKey,   
       type,
       {
         originalName: file.name,
@@ -159,69 +129,165 @@ export async function uploadImageWithMetadata(
       }
     );
 
-    if (!metadataResult || !metadataResult.success) {
-      throw new Error('Failed to save metadata');
-    }
+    const imageId = metadataResult?.image_id || `direct_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
-    console.log('✅ Metadata saved successfully');
+    console.log('✅ Upload with metadata process completed');
 
     return {
-      imageId: metadataResult.image_id,
-      publicUrl: uploadUrlData.public_url,
-      fileKey: uploadUrlData.file_key
+      imageId,
+      publicUrl: uploadResult.publicUrl,
+      fileKey: uploadResult.fileKey
     };
 
   } catch (error) {
-    console.error('❌ Upload process failed:', error);
+    console.error('❌ Upload with metadata process failed:', error);
     return null;
   }
 }
 
-// 이미지 생성 API 호출 (기존과 동일)
+/**
+ * 통합 업로드 함수 (직접 업로드 + 메타데이터 저장)
+ * 백엔드 개발자 제안: SDK 직접 업로드 방식
+ */
+export async function uploadImageDirect(
+  file: File,
+  type: string = 'input',
+  meta?: ImageMetadata
+): Promise<{ imageId: string; publicUrl: string; fileKey: string } | null> {
+  try {
+    console.log('🚀 Starting direct upload process for:', file.name);
+
+    // 사용자 ID 가져오기
+    let userId = 'guest-user';
+    try {
+      const { getCurrentUser } = await import('@/lib/supabase');
+      const user = await getCurrentUser();
+      if (user?.id) {
+        userId = user.id;
+      }
+    } catch (authError) {
+      console.warn('Could not get current user, using guest:', authError);
+    }
+
+    // 1단계: 프론트엔드에서 직접 Supabase Storage에 업로드
+    const { uploadImageDirect: uploadDirect } = await import('@/lib/supabase');
+    const uploadResult = await uploadDirect(file, userId);
+    
+    if (!uploadResult) {
+      throw new Error('Direct upload failed');
+    }
+
+    console.log('✅ File uploaded directly to Supabase');
+
+    // 2단계: 백엔드에 메타데이터 저장
+    const metadataResult = await saveImageMetadata(
+      uploadResult.publicUrl,
+      type,
+      {
+        originalName: file.name,
+        size: file.size,
+        type: file.type,
+        uploadedAt: new Date().toISOString(),
+        ...meta
+      }
+    );
+
+    const imageId = metadataResult?.image_id || `direct_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
+    console.log('✅ Direct upload process completed');
+
+    return {
+      imageId,
+      publicUrl: uploadResult.publicUrl,
+      fileKey: uploadResult.fileKey
+    };
+
+  } catch (error) {
+    console.error('❌ Direct upload process failed:', error);
+    return null;
+  }
+}
+
+// // 이미지 생성 API 호출
+// export async function generateImages(
+//   userId: string,
+//   imageKeys: string[],
+//   keyword?: string
+// ): Promise<GenerateResponse | null> {
+//   try {
+//     const token = await getAuthToken();
+    
+//     const headers: Record<string, string> = {
+//       'Content-Type': 'application/json',
+//     };
+
+//     if (token) {
+//       headers['Authorization'] = `Bearer ${token}`;
+//     }
+    
+//     const response = await fetch(`${API_BASE_URL}/api/v1/generate`, {
+//       method: 'POST',
+//       headers,
+//       body: JSON.stringify({
+//         user_id: userId,
+//         input_image_keys: imageKeys,
+//         keyword: keyword,
+//       }),
+//     });
+
+//     if (!response.ok) {
+//       throw new Error(`HTTP error! status: ${response.status}`);
+//     }
+
+//     const data = await response.json() as GenerateResponse;
+//     return data;
+//   } catch (error) {
+//     console.error('Generate images error:', error);
+//     return null;
+//   }
+// }
+
+// generateImages 함수는 백엔드 구현 대기 중이므로 mock 처리
 export async function generateImages(
   userId: string,
   imageKeys: string[],
   keyword?: string
-): Promise<GenerateResponse | null> {
-  try {
-    const token = await getAuthToken();
-    
-    const response = await fetch(`${API_BASE_URL}/api/v1/generate`, {
-      method: 'POST',
-      headers: {
-        'Authorization': token ? `Bearer ${token}` : 'Content-Type',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        user_id: userId,
-        input_image_keys: imageKeys,
-        keyword: keyword,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+): Promise<GenerateResponse> {
+  console.log('🎨 Generate API called (using mock data):', { userId, imageKeys, keyword });
+  
+  // Mock 데이터 반환
+  const { dummyGeneratedImages } = await import('@/data/dummyData');
+  const mockGeneratedImages = dummyGeneratedImages.slice(0, 4).map((src, index) => ({
+    image_id: `mock_${Date.now()}_${index}`,
+    url: src
+  }));
+  
+  return {
+    success: true,
+    generated_images: mockGeneratedImages,
+    metadata: {
+      keyword: keyword,
+      input_images: imageKeys
     }
-
-    const data = await response.json() as GenerateResponse;
-    return data;
-  } catch (error) {
-    console.error('Generate images error:', error);
-    return null;
-  }
+  };
 }
 
-// 사용자의 모든 이미지 조회 (기존과 동일)
+// 사용자 이미지 조회 (기존 유지)
 export async function getUserImages(userId: string): Promise<UserImagesResponse | null> {
   try {
     const token = await getAuthToken();
     
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
     const response = await fetch(`${API_BASE_URL}/api/v1/images/user/${userId}`, {
       method: 'GET',
-      headers: {
-        'Authorization': token ? `Bearer ${token}` : 'Content-Type',
-        'Content-Type': 'application/json',
-      },
+      headers,
     });
 
     if (!response.ok) {

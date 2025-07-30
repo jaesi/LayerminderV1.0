@@ -31,10 +31,10 @@ export interface UploadUrlRequest {
   file_type: string;
 }
 
-// API 요청 타입들 (수정됨)
+// API 요청 타입들 
 export interface ImageMetadataRequest {
-  url: string;  // 변경: file_key 대신 public_url 사용
-  type: string;
+  user_id: string;
+  image_key: string;
   meta?: ImageMetadata;
 }
 
