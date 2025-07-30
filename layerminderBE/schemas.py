@@ -24,7 +24,6 @@ class ProfileResponse(BaseModel):
 
 # Image meta data upload
 class ImageMetadataRequest(BaseModel):
-    url: HttpUrl
     file_key: str
     type: str
 
