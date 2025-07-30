@@ -67,23 +67,21 @@ class PresignedUrlResponse(BaseModel):
     fileKey: str
     expiresIn: int
 
-# image generation api
+
 
 class ImageMetaIn(BaseModel):
     image_key: str
     user_id: str
+    
+# image generation
 
 class ImageGenerationRequest(BaseModel):
-    user_id: str
     input_image_keys: List[str] = Field(..., min_items=1, max_items=2)
     keyword: Optional[str] = None
 
-class GeneratedImageResponse(BaseModel):
-    image_id: str
-    url: str
-
 class ImageGenerationResponse(BaseModel):
-    generated_images: List[GeneratedImageResponse]
+    image_keys: List[str]
+    urls: List[str]
 
 # Upload API
 class UploadRequest(BaseModel):

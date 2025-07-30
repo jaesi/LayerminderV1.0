@@ -2,12 +2,12 @@ import os
 import base64
 import uuid
 import requests
-from io import BytesIO
+from io import BytesIO, BufferedReader
 import asyncio
 from datetime import datetime, timezone
 from openai import OpenAI, AsyncOpenAI
 
-from core.supabase_client import supabase
+from supabase import create_client
 from core.config import settings
 
 # 1. load env variables
@@ -16,14 +16,17 @@ OPENAI_API_KEY = settings.OPENAI_API_KEY
 
 # 2. Supabase & OpenAI 클라이언트
 client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE)
 
 # 3. Supabase storage making it to fileobject
 def supabase_image_to_fileobject(file_key, expires_in=600) -> base64:
-    signed = supabase.storage.from_(STORAGE_BUCKET).create_signed_url(file_key, expires_in)
-    url = signed["signedUrl"]
-    resp = requests.get(url)
+    base = settings.SUPABASE_URL.rstrip("/")  # e.g. https://uscw…supabase.co
+    public_url = f"{base}/storage/v1/object/public/{STORAGE_BUCKET}/{file_key}"
+    
+    resp = requests.get(public_url)
     resp.raise_for_status()
     img_bytes = resp.content
+    
     file_object = BytesIO(img_bytes)
     file_object.name = os.path.basename(file_key)
     return file_object
@@ -51,26 +54,38 @@ async def generate_and_store_db(image_keys,
     )
     # 2.1. base64 -> bytes
     image_bytes = base64.b64decode(result.data[0].b64_json)
+    buf = BufferedReader(BytesIO(image_bytes))
     
-    # 3. Upload to the supbase storage
-    generated_image_key = f"generated/{uuid.uuid4().hex}.jpeg"
-    supabase.storage.from_(STORAGE_BUCKET).upload(generated_image_key,BytesIO(image_bytes))
+    # 3. Upload to Supabase storage
+    base_name = os.path.basename(image_keys[0])
+    generated_image_key = f"generated/{user_id}/{uuid.uuid4().hex}_{base_name}"
+    # supabase.storage.from_(STORAGE_BUCKET).upload(generated_image_key, BytesIO(image_bytes))
+
+    file_obj = BytesIO(image_bytes); file_obj.name = base_name
+    supabase.storage.from_(STORAGE_BUCKET).upload(
+        generated_image_key,
+        buf,
+        {
+            "contentType": "image/jpeg"
+         }
+    )
+
 
     # 4. Making Public URL
-    public_url = supabase.storage.from_(STORAGE_BUCKET).get_public_url(generated_image_key)["publicUrl"] 
-    
+    # public_url = supabase.storage.from_(STORAGE_BUCKET).get_public_url(generated_image_key)["publicUrl"] 
+    # get_public_url() on the latest client returns a string
+    public_url = supabase.storage.from_(STORAGE_BUCKET).get_public_url(generated_image_key)
+
     # 5. Store to DB
     images_row = {
-        "id": str(uuid.uuid4()),
+        "image_id": str(uuid.uuid4()),
         "user_id" : user_id,
+        "url" : public_url,
         "type" : "generated",
-        "file_key" : generated_image_key,
-        "meta" : {"keyword": keyword},
-        "created_at" : datetime.now(timezone.utc).isoformat(),
-        "url" : public_url
+        "created_at" : datetime.now(timezone.utc).isoformat()
     }
-    # insert
     resp = supabase.table("images").insert(images_row).execute()
+
     # error handling
     if getattr(resp, "error", None):
         raise Exception(f"DB Load failed: {resp.error}")
