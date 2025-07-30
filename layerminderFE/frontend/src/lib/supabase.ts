@@ -5,6 +5,53 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// ✅ 이 방식이 작동합니다 (백엔드 개발자 제안)
+export async function uploadImageDirect(file: File, userId: string) {
+  try {
+    console.log('=== Direct Upload to Supabase ===');
+    console.log('File:', file.name, file.size, file.type);
+    console.log('User ID:', userId);
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const filePath = `uploads/${userId}/${fileName}`;
+
+    console.log('Upload path:', filePath);
+
+    // 🔥 핵심: 프론트엔드에서 직접 Supabase Storage에 업로드
+    const { data, error } = await supabase.storage
+      .from('layerminder') // 버킷 이름 확인 필요
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false,
+      });
+
+    if (error) {
+      console.error('=== Supabase Direct Upload Error ===');
+      console.error('Error:', error);
+      return null;
+    }
+
+    console.log('✅ Direct upload successful:', data);
+
+    // 공개 URL 생성
+    const { data: urlData } = supabase.storage
+      .from('layerminder')
+      .getPublicUrl(filePath);
+
+    return {
+      fileKey: filePath,
+      publicUrl: urlData.publicUrl,
+      uploadMethod: 'direct_supabase'
+    };
+
+  } catch (error) {
+    console.error('=== Direct Upload Error ===');
+    console.error('Error:', error);
+    return null;
+  }
+}
+
 // 이미지 삭제 함수
 export async function deleteImage(fileKey: string): Promise<boolean> {
   try {

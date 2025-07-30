@@ -46,7 +46,8 @@ export const signInWithKakao = async () => {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'kakao',
       options: {
-        redirectTo: `${window.location.origin}/dashboard`
+        redirectTo: `${window.location.origin}/dashboard`,
+        scopes: 'profile_nickname, profile_image',
       }
     })
     
