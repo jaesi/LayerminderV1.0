@@ -15,7 +15,7 @@ STORAGE_BUCKET = settings.SUPABASE_STORAGE_BUCKET
 OPENAI_API_KEY = settings.OPENAI_API_KEY
 
 # 2. Supabase & OpenAI 클라이언트
-client = AsyncOpenAI()
+client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
 # 3. Supabase storage making it to fileobject
 def supabase_image_to_fileobject(file_key, expires_in=600) -> base64:

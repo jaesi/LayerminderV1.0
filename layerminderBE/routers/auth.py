@@ -17,13 +17,16 @@ async def get_profile(user_id: str = Depends(get_current_user)):
     """
     try:
         user = supabase.auth.admin.get_user_by_id(user_id)
+        info = user.user
+        metadata = info.user_metadata or {}
+
+        return ProfileResponse(
+            id=info.id,
+            email=info.email,
+            nickname=metadata.get("name") or metadata.get("full_name"),
+            avatar_url=metadata.get("picture")
+        )
     except Exception:
         # If get_user_by_id fails
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail="User not found.")
-    
-    return ProfileResponse(
-        id=user.user.id,
-        email=user.user.email,
-        user_metadata=user.user.user_metadata or {}
-    )

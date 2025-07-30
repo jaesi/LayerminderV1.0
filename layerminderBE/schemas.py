@@ -1,5 +1,6 @@
 # Pydantic 모델 정의할 곳
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, HttpUrl
+from uuid import UUID
 from typing import List, Dict, Optional, Any
 from datetime import datetime
 
@@ -17,9 +18,21 @@ class SocialLoginResponse(BaseModel):
 # After log-in
 class ProfileResponse(BaseModel):
     id: str
-    email: EmailStr
+    email: Optional[EmailStr] = None
+    nickname: Optional[str] = None
     user_metadata: Dict[str, Any]
 
+# Image meta data upload
+class ImageMetadataRequest(BaseModel):
+    url: HttpUrl
+    file_key: str
+    type: str
+
+class ImageMetadataResponse(BaseModel):
+    image_id: UUID
+    url: HttpUrl
+    type: str
+    created_at: datetime
 
 # History
 class HistorySession(BaseModel):
@@ -54,20 +67,6 @@ class PresignedUrlResponse(BaseModel):
     uploadUrl: str
     fileKey: str
     expiresIn: int
-
-# Image meta data API
-
-class ImageMetadataRequest(BaseModel):
-    user_id: str
-    file_key: str
-    image_key: str
-    type: str           # ex. "user_upload"
-    meta: Optional[dict] = None 
-
-class ImageMetadataResponse(BaseModel):
-    success: bool
-    image_id: str
-    created_at: str
 
 # image generation api
 
