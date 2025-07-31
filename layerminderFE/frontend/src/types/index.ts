@@ -1,20 +1,17 @@
 // API 응답 타입들
+
+// 메타데이터 등록 응답
 export interface ImageMetadataResponse {
-  success: boolean;
-  image_id: string;
+  image_id: string
+  url: string;
+  type: string;
   created_at: string;
 }
 
+// ai 생성 응답
 export interface GenerateResponse {
-  success: boolean;
-  generated_images: Array<{
-    image_id: string;
-    url: string;
-  }>;
-  metadata: {
-    keyword?: string;
-    input_images: string[];
-  };
+  image_keys: string[];   
+  urls: string[]; 
 }
 
 // 새로운 업로드 관련 타입들
@@ -32,19 +29,18 @@ export interface UploadUrlRequest {
 }
 
 // API 요청 타입들 
+// 메타데이터 등록 요청
 export interface ImageMetadataRequest {
-  user_id: string;
-  image_key: string;
-  meta?: ImageMetadata;
+  file_key: string;
+  type: "input" | "generated";
 }
-
+// ai 생성 요청
 export interface GenerateRequest {
-  user_id: string;
-  image_keys: string[];
+  input_image_keys: string[];
   keyword?: string;
 }
 
-// 메타데이터 타입들 (확장됨)
+// 메타데이터 타입들 
 export interface ImageMetadata {
   originalName?: string;
   size?: number;
