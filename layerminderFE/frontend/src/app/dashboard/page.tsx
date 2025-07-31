@@ -8,7 +8,7 @@ import MainPanel from '@/components/dashboard/MainPanel';
 import TopPanel from '@/components/dashboard/TopPanel';
 import { boardsData } from '@/data/dummyData';
 import { DroppedFile, GeneratedRow } from '@/types';
-import { uploadImageWithMetadata, generateImages } from '@/lib/api';
+import { uploadImageWithMetadata, generateImages, registerGeneratedImageMetadata } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function Home() {
@@ -83,6 +83,7 @@ export default function Home() {
     return board?.keyword || 'Generated';
   };
 
+// dashboard/page.tsx - handleGenerate 함수 수정
 const handleGenerate = async (files: DroppedFile[], keywords: string[]) => {
   setIsGenerating(true);
   
@@ -97,13 +98,7 @@ const handleGenerate = async (files: DroppedFile[], keywords: string[]) => {
       // 1. 직접 Supabase Storage에 업로드 + 메타데이터 저장
       const uploadResult = await uploadImageWithMetadata(
         item.file,
-        'input',
-        {
-          originalName: item.file.name,
-          size: item.file.size,  
-          type: item.file.type,
-          uploadedBy: user?.email || 'guest'
-        }
+        'input'
       );
       
       if (!uploadResult) {
@@ -116,39 +111,45 @@ const handleGenerate = async (files: DroppedFile[], keywords: string[]) => {
     const uploadResults = await Promise.all(uploadPromises);
     console.log('✅ All files uploaded with metadata:', uploadResults.length);
 
-    // 2. Generate API 호출 (Mock 데이터 사용)
-    console.log('🎨 Calling generate API...');
+    // ✅ 2단계: AI 이미지 생성 (새 API 스펙)
+    console.log('🎨 Calling generate API with new spec...');
     const keyword = keywords.length > 0 ? keywords[0] : 
                   (selectedBoardId ? getBoardKeyword(selectedBoardId) : undefined);
 
     const generateResult = await generateImages(
-      userId,
-      uploadResults.map(r => r.fileKey),
+      uploadResults.map(r => r.fileKey),  // user_id 매개변수 제거
       keyword
     );
 
-    if (!generateResult || !generateResult.success) {
+    if (!generateResult) {
       throw new Error('이미지 생성에 실패했습니다.');
     }
 
-    console.log('✅ Images generated:', generateResult.generated_images.length);
+    console.log('✅ Images generated:', generateResult.urls.length);
 
-    // 3. UI 업데이트
-    const newGeneratedImages = generateResult.generated_images.map(img => img.url);
+    // ✅ 3단계: 생성된 이미지들의 메타데이터를 백엔드에 등록
+    console.log('📝 Registering generated image metadata...');
+    const generatedMetadata = await registerGeneratedImageMetadata(generateResult.image_keys);
+    console.log('✅ Generated image metadata registered:', generatedMetadata.length);
+
+    // ✅ 4단계: UI 업데이트 (새 응답 스펙에 맞춤)
+    const newGeneratedImages = generateResult.urls;  // 직접 URLs 배열 사용
     setGeneratedImages(newGeneratedImages);
     setTopPanelMode('generate');
 
     const newGeneratedRow: GeneratedRow = {
       id: `generated_${Date.now()}`,
       images: [
-        ...generateResult.generated_images.map((img, index) => ({
+        // 생성된 이미지들 (새 응답 스펙 사용)
+        ...generateResult.urls.map((url, index) => ({
           id: Date.now() + index + 1,
-          src: img.url,
+          src: url,
           isPinned: false,
           type: 'output' as const,
-          imageId: img.image_id,
-          fileKey: undefined
+          imageId: generatedMetadata[index]?.image_id || `gen_${Date.now()}_${index}`,
+          fileKey: generateResult.image_keys[index]
         })),
+        // 참조 이미지
         {
           id: Date.now() + 1000,
           src: uploadResults[0].publicUrl,
@@ -170,11 +171,11 @@ const handleGenerate = async (files: DroppedFile[], keywords: string[]) => {
 
     setGeneratedRows(prev => [newGeneratedRow, ...prev]);
     
-    console.log('✅ Generation complete with metadata upload!', { 
+    console.log('✅ Generation complete with new API spec!', { 
       boardId: selectedBoardId, 
       keyword: keyword,
-      generatedCount: generateResult.generated_images.length,
-      uploadMethod: 'direct_supabase_with_metadata',
+      generatedCount: generateResult.urls.length,
+      uploadMethod: 'direct_supabase_with_new_api',
       userId: userId
     });
 
