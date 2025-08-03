@@ -1,36 +1,58 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends, status
+import asyncio
+import uuid
+from datetime import datetime, timezone
+
+from core.supabase_client import supabase
 from auth import get_current_user
 from schemas import ImageGenerationRequest, ImageGenerationResponse
-from services.image_generation import generate_and_store_db
-
-import asyncio
+from services.image_generation import generate_and_store_images
 
 router = APIRouter(tags=['AI'])
 
-@router.post("/generate", response_model=ImageGenerationResponse)
+@router.post(
+        "/generate",
+          response_model=ImageGenerationResponse,
+          status_code=status.HTTP_202_ACCEPTED
+)
 async def generate_images(
-    req: ImageGenerationRequest,
+    payload: ImageGenerationRequest,
+    backgound_tasks: BackgroundTasks,
     user_id: str=Depends(get_current_user)
 ):
-    # 입력 검증
-    if not req.input_image_keys or len(req.input_image_keys) == 0:
-        raise HTTPException(400, "input image_keys are required")
-    if len(req.input_image_keys) > 2:
-        raise HTTPException(400, "max 2 image_keys are allowed")
+    # 1) Checking the session
+    sess = (
+        supabase.table("history_sessions")
+        .select("user_id")
+        .eq("session_id", str(payload.session_id))
+        .single().execute()
+    )
+    
+    if not sess.data or sess.data["user_id"] != user_id:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    # 2) Create record (pending)
+    record_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    supabase.table("history_records").insert({
+        "record_id": record_id,
+        "session_id": str(payload.session_id),
+        "status": "pending",
+        "created_at": now,
+        "updated_at": now
+    }).execute()
 
-    # async x4 generation
-    tasks = [generate_and_store_db(
-        image_keys=req.input_image_keys,
-        keyword=req.keyword,
-        user_id = user_id
-    ) for _ in range(4)]
-    results = await asyncio.gather(*tasks)
+    # 3) Apply BackgroundTask
+    backgound_tasks.add_task(
+        generate_and_store_images,
+        record_id,
+        payload.input_image_keys,
+        user_id,
+        payload.keyword
+    )
 
-    # Extracting image_key, url from outputs
-    output_image_keys = [r["image_key"] for r in results]
-    output_urls = [r["url"] for r in results]
-
+    # 4) Response
     return ImageGenerationResponse(
-        image_keys=output_image_keys,
-        urls=output_urls) 
-
+        record_id=record_id, 
+        status="pending",
+        )

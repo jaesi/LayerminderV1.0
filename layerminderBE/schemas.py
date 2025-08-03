@@ -40,7 +40,6 @@ class ImageMetadataResponse(BaseModel):
     created_at: datetime
 
 
-
 # Room
 class Room(BaseModel):
     id: str
@@ -66,30 +65,40 @@ class UploadResponse(BaseModel):
     presigned_url: str
     file_key: str
     public_url: str
-
-# Presigned URL API
-
-class PresignedUrlRequest(BaseModel):
-    userId: str
-    fileType: str
-
-class PresignedUrlResponse(BaseModel):
-    uploadUrl: str
-    fileKey: str
-    expiresIn: int
-
-class ImageMetaIn(BaseModel):
-    image_key: str
-    user_id: str
     
 # image generation
 class ImageGenerationRequest(BaseModel):
-    input_image_keys: List[str] = Field(..., min_items=1, max_items=2)
+    session_id: UUID
+    input_image_keys: List[str] = Field(..., 
+                                        min_items=1, 
+                                        max_items=2,
+                                        description="1~2 image for the generation")
     keyword: Optional[str] = None
 
 class ImageGenerationResponse(BaseModel):
-    image_keys: List[str]
-    urls: List[str]
+    record_id: UUID
+    status: str
+
+    class Config:
+        orm_mode = True
+
+# Record
+class RecordCreate(BaseModel):
+    session_id: UUID
+    image_ids: List[UUID]
+
+class RecordResponse(BaseModel):
+    record_id: UUID
+    session_id: UUID
+    reference_image_id: Optional[UUID]
+    story: Optional[str]
+    keywords: Optional[str]
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        orm_mode=True
 
 # LayerStory
 class StoryGenerationRequest(BaseModel):

@@ -4,14 +4,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 import uvicorn
 
-
 from core.config import settings
+
 # routers
 from routers.history import router as history_router
 from routers.image_metadata import router as image_meta_router
 from routers.generation import router as generation_router
 from routers.auth import router as auth_router
-
 
 app = FastAPI(title="LayerMinder API v1.0")
 

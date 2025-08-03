@@ -18,7 +18,7 @@ async def create_session(user_id: str = Depends(get_current_user)):
     resp = supabase.table("history_sessions").insert(row).execute()
     if getattr(resp, "error", None):
         raise HTTPException(status_code=500, detail=f"DB insert failed: {resp.error}")
-    return HistorySession(id=session_id, user_id=user_id, created_at=created_at)
+    return HistorySession(session_id=session_id, user_id=user_id, created_at=created_at)
 
 # 2. Get session
 @router.get("/history_sessions", response_model=List[HistorySession])
