@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, status
 import uuid
 from datetime import datetime, timezone
 from typing import List
@@ -10,7 +10,7 @@ from schemas import HistorySession
 router = APIRouter(tags=["history"])
 
 # 1. Upload session
-@router.post("/history/sessions", response_model=HistorySession)
+@router.post("/history_sessions", response_model=HistorySession)
 async def create_session(user_id: str = Depends(get_current_user)):
     session_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc).isoformat()
@@ -20,7 +20,8 @@ async def create_session(user_id: str = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=f"DB insert failed: {resp.error}")
     return HistorySession(id=session_id, user_id=user_id, created_at=created_at)
 
-@router.get("/history/sessions", response_model=List[HistorySession])
+# 2. Get session
+@router.get("/history_sessions", response_model=List[HistorySession])
 async def list_sessions(user_id: str = Depends(get_current_user)):
     resp = (
         supabase.table("history_sessions")
@@ -33,3 +34,33 @@ async def list_sessions(user_id: str = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=f"DB fetch failed: {resp.error}")
     sessions = resp.data or []
     return [HistorySession(**s) for s in sessions]
+
+# 3. Delete Session
+@router.delete(
+    "/history_sessions/{session_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_session(
+    session_id:str,
+    user_id: str = Depends(get_current_user)
+):
+    # Delete corresponding user_id's row
+    resp = (
+        supabase.table("history_sessions")
+        .delete()
+        .eq("session_id", session_id) # same as WHERE id = <session_id>
+        .eq("user_id", user_id)
+        .execute()
+    )
+    if getattr(resp, "error", None):
+        raise HTTPException(
+            status_code=500,
+            detail=f"DB delete failed: {resp.error.message}"
+        )
+    
+    # Error 401: no data to delete
+    if not resp.data or len(resp.data) == 0:
+        raise HTTPException(
+            status_code=404,
+            detail="Session not found or already deleted"
+        )

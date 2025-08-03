@@ -22,6 +22,12 @@ class ProfileResponse(BaseModel):
     nickname: Optional[str] = None
     user_metadata: Dict[str, Any]
 
+# History Session
+class HistorySession(BaseModel):
+    id: str
+    user_id: str
+    created_at: str
+
 # Image meta data upload
 class ImageMetadataRequest(BaseModel):
     file_key: str
@@ -33,11 +39,7 @@ class ImageMetadataResponse(BaseModel):
     type: str
     created_at: datetime
 
-# History
-class HistorySession(BaseModel):
-    id: str
-    user_id: str
-    created_at: str
+
 
 # Room
 class Room(BaseModel):
@@ -56,6 +58,15 @@ class Token(BaseModel):
     access_token: str
     token_type: str = "bearer" # 기본값 
 
+# Upload API
+class UploadRequest(BaseModel):
+    file_name: str
+
+class UploadResponse(BaseModel):
+    presigned_url: str
+    file_key: str
+    public_url: str
+
 # Presigned URL API
 
 class PresignedUrlRequest(BaseModel):
@@ -67,14 +78,11 @@ class PresignedUrlResponse(BaseModel):
     fileKey: str
     expiresIn: int
 
-
-
 class ImageMetaIn(BaseModel):
     image_key: str
     user_id: str
     
 # image generation
-
 class ImageGenerationRequest(BaseModel):
     input_image_keys: List[str] = Field(..., min_items=1, max_items=2)
     keyword: Optional[str] = None
@@ -83,11 +91,10 @@ class ImageGenerationResponse(BaseModel):
     image_keys: List[str]
     urls: List[str]
 
-# Upload API
-class UploadRequest(BaseModel):
-    file_name: str
+# LayerStory
+class StoryGenerationRequest(BaseModel):
+    image_keys: List[str] = Field(..., min_items=1, max_items=4)
 
-class UploadResponse(BaseModel):
-    presigned_url: str
-    file_key: str
-    public_url: str
+class StoryGenerationResponse(BaseModel):
+    story_id: UUID
+
