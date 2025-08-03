@@ -24,7 +24,7 @@ class ProfileResponse(BaseModel):
 
 # History Session
 class HistorySession(BaseModel):
-    id: str
+    session_id: str
     user_id: str
     created_at: str
 
