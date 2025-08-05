@@ -1,18 +1,13 @@
-import asyncio
+import asyncio, base64, httpx
 from datetime import datetime, timezone
 from openai import AsyncOpenAI
-from langchain_core.messages import HumanMessage, SystemMessage
 
 from core.supabase_client import supabase
 from core.config import settings 
-import base64
+
 client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
 CHAT_GPT_MODEL = "gpt-4.1-nano"
 
-# helper function to encode image to base64
-def encode_image_to_base64(image_path):
-    with open(image_path, "rb") as image_file:
-        return base64.b64encode(image_file.read()).decode("utf-8")
 
 async def generate_and_store_story_keywords(record_id: str):
     """
@@ -45,19 +40,28 @@ async def generate_and_store_story_keywords(record_id: str):
         .execute().data or []
     
     urls = [i["url"] for i in imgs]
-    first_url = urls[0]
 
-    base64_image = encode_image_to_base64(first_url)
-
-    if not urls:
-        raise ValueError(f"No images for record {record_id}")
-    
+    # 4) First image URL fetch -> base64 encode
+    async with httpx.AsyncClient() as http:
+        resp = await http.get(urls[0])
+        resp.raise_for_status()
+        b64 = base64.b64encode(resp.content).decode("utf-8")
 
 
     # 4) Generate story with OpenAI
     # - Set chat message
 
-    prompt_text = """
+    system = {
+        "role": "system",
+        "content": """
+        You are a specialist in writing elegant and culturally-informed product descriptions for furniture collections.
+        Avoid fictional names or creators. Focus on real-world design, material inspiration, and symbolic language in a minimalist tone.
+        """
+    }
+
+    user = {
+        "role": "user",
+        "content": """
     You are a product description writer for a premium furniture brand that values cultural inspiration, minimal design, and material storytelling.
 
     Analyze the furniture shown in the image and generate a description with the following format:
@@ -88,31 +92,33 @@ async def generate_and_store_story_keywords(record_id: str):
 
     Keywords: keyword1, keyword2, keyword3, ..., keyword12
     """
+    }
 
-    chat = ChatOpenAI(model=CHAT_GPT_MODEL, temperature=0.75, max_tokens=1200)
+    image_message = {
+        "role": "user",
+        "content": "",
+        "type": "image_url",
+        "image_url": {
+            "url": f"data:image/jpeg;base64,{b64}"
+        }
+    }
 
-    messages = [
-        SystemMessage(content="""
-        You are a specialist in writing elegant and culturally-informed product descriptions for furniture collections.
-        Avoid fictional names or creators. Focus on real-world design, material inspiration, and symbolic language in a minimalist tone.
-        """),
-        HumanMessage(content=[
-            {"type": "text", "text": prompt_text},
-            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
-        ])
-    ]
-    # 4) Call chat 
-    response = chat.invoke(messages)
-    result_text = response.content.strip()
+    completion = await client.chat.completions.create(
+        model=CHAT_GPT_MODEL,
+        messages=[system, user, image_message],
+        max_tokens=1500,
+        temperature=0.7
+    )
 
+    result = completion.choices[0].message.content.strip()
 
 
     # 5) parse output: "Keyword"
-    if "Keywords:" in result_text:
-        desc, kw_line = result_text.split("Keywords:", 1)
+    if "Keywords:" in result:
+        desc, kw_line = result.split("Keywords:", 1)
         keywords = [k.strip() for k in kw_line.split(",") if k.strip()]
     else:
-        desc = result_text
+        desc = result
         keywords = []
 
     # 6) Update DB: story, keywords -> all ready
