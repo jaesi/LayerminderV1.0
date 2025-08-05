@@ -37,7 +37,7 @@ async def generate_images(
     supabase.table("history_records").insert({
         "record_id": record_id,
         "session_id": str(payload.session_id),
-        "status": "pending",
+        "image_status": "pending",
         "created_at": now,
         "updated_at": now
     }).execute()
@@ -54,5 +54,5 @@ async def generate_images(
     # 4) Response
     return ImageGenerationResponse(
         record_id=record_id, 
-        status="pending",
+        image_status="pending",
         )

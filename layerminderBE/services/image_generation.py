@@ -44,7 +44,7 @@ async def generate_and_store_images(
     # 1) Change the status
     supabase.table("history_records")\
         .update({
-            "status": "processing",
+            "image_status": "processing",
             "updated_at": datetime.now(timezone.utc).isoformat()
         })\
         .eq("record_id", record_id)\
@@ -104,7 +104,7 @@ async def generate_and_store_images(
     # 7) status -> ready 
     supabase.table("history_records")\
         .update({
-            "status": "ready",
+            "image_status": "ready",
             "updated_at": datetime.now(timezone.utc).isoformat()
         })\
         .eq("record_id", record_id)\
