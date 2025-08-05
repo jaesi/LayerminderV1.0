@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     JWT_SECRET: str
 
     model_config = SettingsConfigDict(
-        env_file=str(Path(__file__).parent.parent/".env"),
+        env_file=str(Path(__file__).parent.parent.parent/".env"),
         env_file_encoding="utf-8",
         extra="ignore"
     )

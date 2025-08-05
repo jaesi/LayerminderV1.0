@@ -1,13 +1,18 @@
 import asyncio
 from datetime import datetime, timezone
 from openai import AsyncOpenAI
-from langchain.schema import SystemMessage, HumanMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 
 from core.supabase_client import supabase
 from core.config import settings 
-
+import base64
 client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-CHAT_GPT_MODEL = "gpt-4o"
+CHAT_GPT_MODEL = "gpt-4.1-nano"
+
+# helper function to encode image to base64
+def encode_image_to_base64(image_path):
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode("utf-8")
 
 async def generate_and_store_story_keywords(record_id: str):
     """
@@ -40,81 +45,74 @@ async def generate_and_store_story_keywords(record_id: str):
         .execute().data or []
     
     urls = [i["url"] for i in imgs]
+    first_url = urls[0]
+
+    base64_image = encode_image_to_base64(first_url)
 
     if not urls:
         raise ValueError(f"No images for record {record_id}")
     
+
+
     # 4) Generate story with OpenAI
     # - Set chat message
-    system_message = {
-        "role": "system",
-        "content": (
-            "You are a specialist in writing elegant and culturally-informed "
-            "product descriptions for a premium furniture brand. Avoid fictional "
-            "names. Focus on real-world design, material inspiration, and symbolic "
-            "language in a minimalist tone."
-        )
-    }
 
-    user_prompt = {
-        "role": "user",
-        "content": (
-    """
-    You are a product description writer for a premium furniture brand that values 
-    cultural inspiration, minimal design, and material storytelling.
+    prompt_text = """
+    You are a product description writer for a premium furniture brand that values cultural inspiration, minimal design, and material storytelling.
 
-    Analyze the furniture shown in the image(s) and generate a description with the 
-    following format:
+    Analyze the furniture shown in the image and generate a description with the following format:
 
-    Name: <concise name including object type>
+    Name: <concise name including object type, e.g. 'Nordic Oak Table'>
     Dimensions: Width: <value> cm, Depth: <value> cm, Height: <value> cm
-    Material: <realistic material>
+    Material: <plausible, realistic materials such as 'oak wood', 'brushed steel', 'marble'>
 
-    Title: "<longer, expressive title capturing cultural or emotional inspiration>"
+    Title: "<longer, expressive title that captures the cultural or emotional inspiration of the piece>"
 
-    Story: Two refined paragraphs (one blank line between):
-    - Paragraph 1: Cultural/environmental inspiration
-    - Paragraph 2: Symbolic or functional design elements
+    Story: Two refined paragraphs, with one empty line in between.
+    - Paragraph 1: Explain the cultural or environmental inspiration of the design and materials.
+    - Paragraph 2: Describe the symbolic or functional design elements, and what they convey.
 
-    Then extract exactly 12 single-word English keywords:
-    - 5+ must come from the story
-    - Categories: style, form, materials
+    Then, extract **exactly 12 single-word English keywords** that represent:
+    - The furniture's **style** (e.g., minimal, modern)
+    - Its **geometric form or structure** (e.g., curved, cylindrical, angular, layered)
+    - Its **materials or finishes** (e.g., velvet, walnut, brushed, marble)
 
-    Return as:
+    Requirements:
+    - At least 5 keywords must clearly relate to details present in the "story".
+    - Avoid abstract terms (e.g., 'confident', 'honest') and generic types (e.g., 'chair').
+    - Do not include duplicate or overly technical terms. (e.g., "ergonomic")
+
+    Return the output in the following format:
 
     <Full Description Text>
 
-    Keywords: word1, word2, ..., word12
-    """)
-    }
+    Keywords: keyword1, keyword2, keyword3, ..., keyword12
+    """
 
-    image_messages = [
-        {
-            "role" : "user",
-            "content": "",
-            "type" : "image_url",
-            "image_url" : {"url": url}
-        }
-        for url in urls
+    chat = ChatOpenAI(model=CHAT_GPT_MODEL, temperature=0.75, max_tokens=1200)
+
+    messages = [
+        SystemMessage(content="""
+        You are a specialist in writing elegant and culturally-informed product descriptions for furniture collections.
+        Avoid fictional names or creators. Focus on real-world design, material inspiration, and symbolic language in a minimalist tone.
+        """),
+        HumanMessage(content=[
+            {"type": "text", "text": prompt_text},
+            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+        ])
     ]
-
-    messages = [system_message, user_prompt] + image_messages
-
     # 4) Call chat 
-    resp = await client.chat.completions.create(
-        model=CHAT_GPT_MODEL,
-        messages= messages,
-        temperature=0.75,
-        max_tokens=1200
-    )
-    result = resp.choices[0].message.content.strip()
+    response = chat.invoke(messages)
+    result_text = response.content.strip()
+
+
 
     # 5) parse output: "Keyword"
-    if "Keywords:" in result:
-        desc, kw_line = result.split("Keywords:", 1)
+    if "Keywords:" in result_text:
+        desc, kw_line = result_text.split("Keywords:", 1)
         keywords = [k.strip() for k in kw_line.split(",") if k.strip()]
     else:
-        desc = result
+        desc = result_text
         keywords = []
 
     # 6) Update DB: story, keywords -> all ready
