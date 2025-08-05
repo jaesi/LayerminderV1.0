@@ -1,5 +1,5 @@
 # Pydantic 모델 정의할 곳
-from pydantic import BaseModel, Field, EmailStr, HttpUrl
+from pydantic import BaseModel, Field, EmailStr, HttpUrl, ConfigDict
 from uuid import UUID
 from typing import List, Dict, Optional, Any
 from datetime import datetime
@@ -79,8 +79,7 @@ class ImageGenerationResponse(BaseModel):
     record_id: UUID
     status: str
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Record
 class RecordCreate(BaseModel):
@@ -97,8 +96,7 @@ class RecordResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        orm_mode=True
+    model_config = ConfigDict(from_attributes=True)
 
 # LayerStory
 class StoryGenerationRequest(BaseModel):

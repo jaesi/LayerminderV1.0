@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from core.supabase_client import supabase
 from auth import get_current_user
 from schemas import ImageGenerationRequest, ImageGenerationResponse
-from services.image_generation import generate_and_store_images
+from services.pipeline import full_pipeline 
 
 router = APIRouter(tags=['AI'])
 
@@ -44,7 +44,7 @@ async def generate_images(
 
     # 3) Apply BackgroundTask
     backgound_tasks.add_task(
-        generate_and_store_images,
+        full_pipeline,
         record_id,
         payload.input_image_keys,
         user_id,
