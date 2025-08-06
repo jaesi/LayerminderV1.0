@@ -77,7 +77,7 @@ class ImageGenerationRequest(BaseModel):
 
 class ImageGenerationResponse(BaseModel):
     record_id: UUID
-    status: str
+    image_status: str
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -9,6 +9,7 @@ import faiss
 from datetime import datetime
 import uuid
 import io
+import csv
 
 from core.config import settings
 
@@ -23,6 +24,7 @@ REFERENCE_URL = settings.REFERENCE_URL
 SUPABASE_KEY = settings.SUPABASE_SERVICE_ROLE
 REFERENCE_STORAGE_BUCKET = settings.REFERENCE_STORAGE_BUCKET
 FOLDER = 'reference/'
+csv_path = "batch/embeddings/image_embeddings_metadata.csv"
 
 # 1. Connect Supabase
 supabase = create_client(REFERENCE_URL, SUPABASE_KEY)
@@ -83,9 +85,14 @@ index.add(embeddings)
 faiss.write_index(index, "batch/embeddings/image_embeddings.index")
 print(f"{len(embeddings)} embeddings saved")
 
+# 7. Save metadata to local CSV
+with open(csv_path, "w", newline="", encoding="utf-8") as f:
+    writer = csv.DictWriter(f, fieldnames=["reference_image_id", "url", "created_at"])
+    writer.writeheader()
+    writer.writerows(rows_to_upsert)
+print(f"{len(rows_to_upsert)} metadata rows saved to {csv_path}.")
 
-# 7. Push to supabase storage
-
+# 8. Push to supabase storage
 BATCH = 100
 for i in range(0, len(rows_to_upsert), BATCH):
     chunk = rows_to_upsert[i:i + BATCH]
