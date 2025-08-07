@@ -11,17 +11,22 @@ import { GeneratedRow, HistorySession } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 import { getHistorySessions } from '@/lib/api';
 
+interface RowSelectData {
+  rowIndex: number;
+  images: Array<{ id: number; src: string; isPinned: boolean }>;
+  keyword: string;
+  startImageIndex?: number;
+  story?: string;
+  generatedKeywords?: string[];
+  recommendationImage?: string;
+}
+
 export default function Dashboard() {
   const { user, profile, loading } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [pinnedImages, setPinnedImages] = useState<number[]>([]);
   const [topPanelMode, setTopPanelMode] = useState<'brand' | 'generate' | 'details'>('brand');
-  const [selectedRowData, setSelectedRowData] = useState<{
-    rowIndex: number;
-    images: Array<{ id: number; src: string; isPinned: boolean }>;
-    keyword: string;
-    startImageIndex?: number;
-  } | null>(null);
+  const [selectedRowData, setSelectedRowData] = useState<RowSelectData | null>(null);
   const [selectedBoardId, setSelectedBoardId] = useState<number | null>(null);
   const [generatedRows, setGeneratedRows] = useState<GeneratedRow[]>([]);
   const [historySessions, setHistorySessions] = useState<HistorySession[]>([]);
@@ -114,7 +119,10 @@ export default function Dashboard() {
       rowIndex: 0, // 새로 생성된 첫 번째 행
       images: result.images,
       keyword: result.keyword || 'Generated',
-      startImageIndex: 0
+      startImageIndex: 0,
+      story: result.story,
+      generatedKeywords: result.generatedKeywords,
+      recommendationImage: result.recommendationImage
     });
 
     // 히스토리 세션 목록 새로고침 (새 세션이 생성되었을 수 있음)
@@ -127,14 +135,18 @@ export default function Dashboard() {
     }
   };
 
-  const handleRowSelect = (rowData: {
-    rowIndex: number;
-    images: Array<{ id: number; src: string; isPinned: boolean }>;
-    keyword: string;
-    startImageIndex?: number;
-  }) => {
+  // 행 선택 핸들러
+  const handleRowSelect = (rowData: RowSelectData) => {
     setSelectedRowData(rowData);
-    setTopPanelMode('details');
+    
+    // 새로 생성된 이미지인 경우 generate 모드로, 기존 이미지인 경우 details 모드로
+    const isNewlyGenerated = generatedRows.some(row => 
+      row.images.some(img => 
+        rowData.images.some(selectedImg => selectedImg.src === img.src)
+      )
+    );
+    
+    setTopPanelMode(isNewlyGenerated ? 'generate' : 'details');
   };
 
   const handleCloseTopPanel = () => {
