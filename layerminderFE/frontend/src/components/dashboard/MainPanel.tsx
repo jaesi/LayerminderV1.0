@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { X, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
-import { DroppedFile } from '@/types';
+import { X, Loader2, AlertCircle, CheckCircle, Zap, Clock } from 'lucide-react';
+import { DroppedFile, GeneratedRow } from '@/types';
+import { useGeneration } from '@/hooks/useGeneration';
 
 interface MainPanelProps {
-  onGenerate: (files: DroppedFile[], keywords: string[]) => Promise<void>;
-  isGenerating?: boolean;
+  onGenerate: (result: GeneratedRow) => void;
 }
 
 // 간단한 파일 검증
@@ -25,14 +25,46 @@ function validateFile(file: File): { valid: boolean; error?: string } {
   return { valid: true };
 }
 
-export default function MainPanel({ 
-  onGenerate,
-  isGenerating = false
-}: MainPanelProps) {
+export default function MainPanel({ onGenerate }: MainPanelProps) {
   const [droppedFiles, setDroppedFiles] = useState<DroppedFile[]>([]);
   const [droppedKeywords, setDroppedKeywords] = useState<string[]>([]);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 새로운 생성 훅 사용
+  const {
+    status,
+    progress,
+    currentStep,
+    error: generationError,
+    sessionId,
+    recordId,
+    isGenerating,
+    isSSEConnected,
+    generate,
+    cancelGeneration,
+    reset
+  } = useGeneration({
+    onComplete: (result) => {
+      console.log('✅ Generation completed:', result);
+      onGenerate(result);
+      
+      // 파일들 정리
+      droppedFiles.forEach(item => {
+        URL.revokeObjectURL(item.previewUrl);
+      });
+      setDroppedFiles([]);
+      setDroppedKeywords([]);
+      setValidationErrors([]);
+    },
+    onError: (error) => {
+      console.error('❌ Generation failed:', error);
+      setValidationErrors([error]);
+    },
+    onProgress: (step, progressValue) => {
+      console.log(`📊 Progress: ${step} (${progressValue}%)`);
+    }
+  });
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -150,6 +182,11 @@ export default function MainPanel({
       return;
     }
 
+    if (isGenerating) {
+      cancelGeneration();
+      return;
+    }
+
     const errors: string[] = [];
     droppedFiles.forEach(item => {
       const validation = validateFile(item.file);
@@ -166,20 +203,47 @@ export default function MainPanel({
     setValidationErrors([]);
 
     try {
-      await onGenerate(droppedFiles, droppedKeywords);
-      
-      droppedFiles.forEach(item => {
-        URL.revokeObjectURL(item.previewUrl);
-      });
-      setDroppedFiles([]);
-      setDroppedKeywords([]);
-      
+      await generate(droppedFiles, droppedKeywords);
     } catch (error) {
       console.error('Generate failed:', error);
       setValidationErrors([
         error instanceof Error ? error.message : '생성에 실패했습니다. 다시 시도해주세요.'
       ]);
     }
+  };
+
+  // 현재 에러 목록 (검증 에러 + 생성 에러)
+  const allErrors = [...validationErrors, ...(generationError ? [generationError] : [])];
+
+  // 생성 상태에 따른 버튼 텍스트 및 아이콘
+  const getButtonContent = () => {
+    if (isGenerating) {
+      return (
+        <>
+          <Loader2 className="animate-spin" size={24} />
+          {status === 'creating_session' && 'Creating Session...'}
+          {status === 'uploading' && 'Uploading...'}
+          {status === 'generating' && 'Generating...'}
+          {!['creating_session', 'uploading', 'generating'].includes(status) && 'Processing...'}
+        </>
+      );
+    }
+    
+    if (status === 'completed') {
+      return (
+        <>
+          <CheckCircle size={24} />
+          &apos;Completed!&apos;
+        </>
+      );
+    }
+    
+    return (
+      <>
+        <Zap size={24} />
+        &apos;Generate&apos;
+      </>
+    );
   };
 
   React.useEffect(() => {
@@ -194,7 +258,7 @@ export default function MainPanel({
     <div className="h-full flex flex-col items-center justify-center p-8 pl-4">
       <div className="flex flex-col items-center gap-6">
         {/* 에러 메시지 */}
-        {validationErrors.length > 0 && (
+        {allErrors.length > 0 && (
           <div className="w-80 p-3 bg-red-50 border border-red-200 rounded">
             <div className="flex items-center gap-2 mb-2">
               <AlertCircle size={16} className="text-red-500" />
@@ -207,10 +271,43 @@ export default function MainPanel({
               </button>
             </div>
             <ul className="text-xs text-red-600 space-y-1">
-              {validationErrors.map((error, index) => (
+              {allErrors.map((error, index) => (
                 <li key={index}>• {error}</li>
               ))}
             </ul>
+          </div>
+        )}
+
+        {/* 생성 상태 정보 */}
+        {isGenerating && (
+          <div className="w-80 p-3 bg-blue-50 border border-blue-200 rounded">
+            <div className="flex items-center gap-2 mb-2">
+              <Loader2 className="animate-spin text-blue-500" size={16} />
+              <span className="text-sm font-medium text-blue-700">
+                {currentStep || 'Processing...'}
+              </span>
+              {isSSEConnected && (
+                <div className="ml-auto flex items-center gap-1">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-xs text-green-600">Live</span>
+                </div>
+              )}
+            </div>
+            
+            {/* 진행률 바 */}
+            <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+              <div 
+                className="bg-blue-500 h-2 rounded-full transition-all duration-500"
+                style={{ width: `${progress}%` }}
+              ></div>
+            </div>
+            
+            <div className="flex justify-between text-xs text-blue-600">
+              <span>{progress}% 완료</span>
+              {sessionId && (
+                <span>Session: {sessionId.substring(0, 8)}...</span>
+              )}
+            </div>
           </div>
         )}
 
@@ -219,22 +316,25 @@ export default function MainPanel({
           <div className="w-3 h-3 bg-gray-800 rounded-full mb-2"></div>
           <button 
             className={`text-2xl italic font-light transition-colors flex items-center gap-2 ${
-              isGenerating || droppedFiles.length === 0
-                ? 'text-gray-400 cursor-not-allowed' 
-                : 'text-gray-700 hover:text-gray-900'
+              isGenerating 
+                ? 'text-blue-600 cursor-pointer hover:text-blue-800' 
+                : droppedFiles.length === 0
+                  ? 'text-gray-400 cursor-not-allowed' 
+                  : 'text-gray-700 hover:text-gray-900'
             }`}
             onClick={handleGenerateClick}
-            disabled={isGenerating || droppedFiles.length === 0}
+            disabled={droppedFiles.length === 0 && !isGenerating}
           >
-            {isGenerating ? (
-              <>
-                <Loader2 className="animate-spin" size={24} />
-                Generating...
-              </>
-            ) : (
-              'Generate'
-            )}
+            {getButtonContent()}
           </button>
+          
+          {/* 예상 소요 시간 */}
+          {!isGenerating && droppedFiles.length > 0 && (
+            <div className="flex items-center gap-1 mt-2 text-xs text-gray-500">
+              <Clock size={12} />
+              <span>예상 소요시간: 20-30초</span>
+            </div>
+          )}
         </div>
 
         {/* Drop 영역 */}
