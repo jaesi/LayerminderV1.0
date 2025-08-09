@@ -14,7 +14,6 @@ STORAGE_BUCKET = settings.SUPABASE_STORAGE_BUCKET
 OPENAI_API_KEY = settings.OPENAI_API_KEY
 OPENAI_MODEL = "gpt-image-1"
 
-
 # 2. OpenAI async client
 client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
@@ -102,8 +101,7 @@ async def generate_and_store_images(
         }).execute()
 
     # 7) status -> ready 
-    supabase.table("history_records")\
-        .update({
+    supabase.table("history_records").update({
             "image_status": "ready",
             "updated_at": datetime.now(timezone.utc).isoformat()
         })\
