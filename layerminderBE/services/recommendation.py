@@ -4,70 +4,83 @@ import requests
 from io import BytesIO
 import csv
 import os
+import logging
 
 from core.supabase_client import supabase
 
-# Resolve KMP duplicate library issue
-os.environ['KMP_DUPLICATE_LIB_OK']='True'
+FAISS_INDEX = "batch/embeddings/image_embeddings.index"
+METADATA = "batch/embeddings/image_embeddings_metadata.csv"
 
-# 1. Load CLIP model, index, metadata 
-# FAISS_INDEX = "layerminderBE/batch/embeddings/image_embeddings.index"
-# METADATA = "layerminderBE/batch/embeddings/image_embeddings_metadata.csv"
+# Moved to dockerfile
+# os.environ["OMP_NUM_THREADS"] = "1"
+# os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
-faiss_index = faiss.read_index(FAISS_INDEX)
-with open(METADATA, encoding='utf-8') as f:
-    metadata = list(csv.DictReader(f))
+# logging
+logger = logging.getLogger(__name__)
+_faiss_loaded = False
+_clip_loaded = False
 
-# helper: Extract image IDs from metadata
+# Global cache variables
+_faiss_index = None
+_metadata = None
+_clip_model = None
+_clip_processor = None
+
+def load_index():
+    """ Import Faiss and metadata only one time"""
+    global _faiss_index, _metadata
+    if _faiss_index is None or _metadata is None:
+        logger.debug("[init] Loading FAISS index and metadata...")
+        _faiss_index = faiss.read_index(FAISS_INDEX)
+        with open(METADATA, encoding='utf-8') as f:
+            _metadata = list(csv.DictReader(f))
+    return _faiss_index, _metadata
+
+def load_clip():
+    """Load CLIP model and Processor only one time"""
+    global _clip_model, _clip_processor
+    if _clip_model is None or _clip_processor is None:
+        logger.debug("[init] Loading CLIP model and processor...")
+        from transformers import AutoImageProcessor, CLIPModel
+        import torch
+        device = "cpu"
+        _clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
+        _clip_processor = AutoImageProcessor.from_pretrained("openai/clip-vit-base-patch32", use_fast=False)
+    return _clip_model, _clip_processor
+    
 def get_image_embedding(url: str) -> np.ndarray:
-    "Fetches an image from a URL, processes it, and returns its embedding."
-    # url -> CLIP
-    response = requests.get(url, timeout=10)
-    response.raise_for_status()
     from PIL import Image
-    from transformers import CLIPProcessor, CLIPModel
     import torch
 
+    response = requests.get(url, timeout=10)
+    response.raise_for_status()
     img = Image.open(BytesIO(response.content)).convert("RGB")
+
+    model, processor = load_clip()
     device = "cpu"
-    model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
-    processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32",
-                                              use_fast=True)
     inputs = processor(images=img, return_tensors="pt").to(device)
+
     with torch.no_grad():
         features = model.get_image_features(**inputs)
         features = features / features.norm(dim=-1, keepdim=True)
     return features.cpu().numpy()[0]
 
-# 2. Service functions: Main recommendation function
-# Four images -> mean of embeddings -> FAISS top 1 return
-def recommend_image(urls: list[str], 
-                    top_k: int =1) -> dict:
-    
+def recommend_image(urls: list[str], top_k: int = 1) -> dict:
     if not urls:
         return {"reference": None}
-    
-    # 1) Mean of user images embeddings
+
+    faiss_index, metadata = load_index()
     features = [get_image_embedding(url) for url in urls]
     mean_vec = np.mean(np.stack(features), axis=0, keepdims=True)
-   
-    # 2) FAISS search
-    D, I = faiss_index.search(mean_vec, top_k)
 
-    # 3) index -> metadata
+    D, I = faiss_index.search(mean_vec, top_k)
     best_idx = I[0][0]
     recommendation = metadata[best_idx]
-    return {"reference": {"id": recommendation["reference_image_id"], 
-                          "url": recommendation["url"]}}
+    return {"reference": {"id": recommendation["reference_image_id"], "url": recommendation["url"]}}
 
-
+# test snippet
 if __name__ == "__main__":
-    # Test usage
     urls = [
-        "https://uscwuogmxxaxwvfueasr.supabase.co/storage/v1/object/public/layerminder/generated/d00af0f8-18be-41bc-b080-97a687e1952d/464a443450b84bc58e5562916145133b_1753962489036_bxzdxc.jpg?",
-        "https://uscwuogmxxaxwvfueasr.supabase.co/storage/v1/object/public/layerminder/generated/d00af0f8-18be-41bc-b080-97a687e1952d/464a443450b84bc58e5562916145133b_1753962489036_bxzdxc.jpg?",
-        "https://uscwuogmxxaxwvfueasr.supabase.co/storage/v1/object/public/layerminder/generated/d00af0f8-18be-41bc-b080-97a687e1952d/464a443450b84bc58e5562916145133b_1753962489036_bxzdxc.jpg?",
         "https://uscwuogmxxaxwvfueasr.supabase.co/storage/v1/object/public/layerminder/generated/d00af0f8-18be-41bc-b080-97a687e1952d/464a443450b84bc58e5562916145133b_1753962489036_bxzdxc.jpg?"
-    ]
-    recommendation = recommend_image(urls, top_k=1)
-    print(recommendation)
+    ] * 4
+    print(recommend_image(urls))
