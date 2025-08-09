@@ -4,15 +4,21 @@ import requests
 from io import BytesIO
 import csv
 import os
+import logging
 
 from core.supabase_client import supabase
 
-# Resolve KMP duplicate library issue
-os.environ['OMP_NUM_THREADS'] = '1'
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
-
 FAISS_INDEX = "batch/embeddings/image_embeddings.index"
 METADATA = "batch/embeddings/image_embeddings_metadata.csv"
+
+# Moved to dockerfile
+# os.environ["OMP_NUM_THREADS"] = "1"
+# os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
+# logging
+logger = logging.getLogger(__name__)
+_faiss_loaded = False
+_clip_loaded = False
 
 # Global cache variables
 _faiss_index = None
@@ -24,7 +30,7 @@ def load_index():
     """ Import Faiss and metadata only one time"""
     global _faiss_index, _metadata
     if _faiss_index is None or _metadata is None:
-        print("[INFO] Loading FAISS index and metadata...")
+        logger.debug("[init] Loading FAISS index and metadata...")
         _faiss_index = faiss.read_index(FAISS_INDEX)
         with open(METADATA, encoding='utf-8') as f:
             _metadata = list(csv.DictReader(f))
@@ -34,12 +40,12 @@ def load_clip():
     """Load CLIP model and Processor only one time"""
     global _clip_model, _clip_processor
     if _clip_model is None or _clip_processor is None:
-        print("[INFO] Loading CLIP model and processor...")
-        from transformers import CLIPProcessor, CLIPModel
+        logger.debug("[init] Loading CLIP model and processor...")
+        from transformers import AutoImageProcessor, CLIPModel
         import torch
         device = "cpu"
         _clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
-        _clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32", use_fast=True)
+        _clip_processor = AutoImageProcessor.from_pretrained("openai/clip-vit-base-patch32", use_fast=True)
     return _clip_model, _clip_processor
     
 def get_image_embedding(url: str) -> np.ndarray:
