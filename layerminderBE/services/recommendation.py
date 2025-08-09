@@ -11,8 +11,8 @@ from core.supabase_client import supabase
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 # 1. Load CLIP model, index, metadata 
-FAISS_INDEX = "layerminderBE/batch/embeddings/image_embeddings.index"
-METADATA = "layerminderBE/batch/embeddings/image_embeddings_metadata.csv"
+# FAISS_INDEX = "layerminderBE/batch/embeddings/image_embeddings.index"
+# METADATA = "layerminderBE/batch/embeddings/image_embeddings_metadata.csv"
 
 faiss_index = faiss.read_index(FAISS_INDEX)
 with open(METADATA, encoding='utf-8') as f:
