@@ -45,7 +45,7 @@ def load_clip():
         import torch
         device = "cpu"
         _clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
-        _clip_processor = AutoImageProcessor.from_pretrained("openai/clip-vit-base-patch32", use_fast=True)
+        _clip_processor = AutoImageProcessor.from_pretrained("openai/clip-vit-base-patch32", use_fast=False)
     return _clip_model, _clip_processor
     
 def get_image_embedding(url: str) -> np.ndarray:
