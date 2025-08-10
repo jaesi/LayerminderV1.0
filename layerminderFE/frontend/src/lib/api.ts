@@ -1,17 +1,10 @@
-// lib/api.ts - 새로운 백엔드 구조에 맞는 API 함수들
-
 import { 
   CreateSessionResponse,
   HistorySession,
   GenerateRequest,
   GenerateResponse,
-  LayerRoom,
-  LayerRoomsResponse,
-  PinToRoomRequest,
-  RoomDetailResponse,
   ImageMetadataResponse,
-  ImageMetadataRequest,
-  SSEEventData
+  ImageMetadataRequest
 } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
@@ -28,7 +21,285 @@ async function getAuthToken(): Promise<string | null> {
   }
 }
 
-// ===== 히스토리 세션 관리 API =====
+// ===== SE 이벤트 타입들 =====
+export interface BackendImageData {
+  image_id: string;
+  seq: number;
+  url: string;
+}
+
+export interface BackendStoryData {
+  story: string;
+}
+
+export interface BackendKeywordsData {
+  keywords: string[];
+}
+
+export interface BackendRecommendationData {
+  reference_image_id: string;
+  reference_image_url: string;
+}
+
+export interface BackendErrorData {
+  step: string;
+  error: string;
+}
+
+export interface BackendFailedData {
+  reason: string;
+  stage?: string;
+}
+
+export interface BackendPingData {
+  t: number;
+}
+
+export interface BackendDoneData {
+  ok: boolean;
+}
+
+// 통합 이벤트 타입
+export interface ProcessedSSEEvent {
+  type: 'images_generated' | 'story_generated' | 'keywords_generated' | 'recommendation_ready' | 'error' | 'complete' | 'ping';
+  data: {
+    image_urls?: string[];
+    story?: string;
+    keywords?: string[];
+    recommendationUrl?: string;
+    recommendationId?: string;
+    error?: string;
+    timestamp?: number;
+  };
+}
+
+/**
+ * SSE 연결
+ */
+export async function createSSEConnection(
+  recordId: string,
+  onEvent: (event: ProcessedSSEEvent) => void,
+  onError?: (error: Event) => void,
+  onComplete?: () => void
+): Promise<EventSource | null> {
+  try {
+    const token = await getAuthToken();
+    
+    // 인증이 필요한 경우 토큰을 쿼리 파라미터로 전달
+    let url = `${API_BASE_URL}/api/v1/stream/${recordId}`;
+    if (token) {
+      url += `?token=${encodeURIComponent(token)}`;
+    }
+    
+    console.log('🔗 Creating SSE connection to:', url);
+    
+    const eventSource = new EventSource(url);
+    
+    // 연결 성공
+    eventSource.onopen = () => {
+      console.log('✅ SSE connection established');
+    };
+
+    // 1. 이미지 생성 완료 이벤트
+    eventSource.addEventListener('images_generated', (event) => {
+      try {
+        const data: BackendImageData[] = JSON.parse(event.data);
+        console.log('📸 Images generated (backend spec):', data.length, 'images');
+        
+        // URL들만 추출하여 순서대로 정렬
+        const imageUrls = data
+          .sort((a, b) => a.seq - b.seq)  // seq로 정렬
+          .map(item => item.url)
+          .filter(url => url);  // null/undefined 제거
+        
+        onEvent({
+          type: 'images_generated',
+          data: { image_urls: imageUrls }
+        });
+      } catch (error) {
+        console.error('Error parsing images_generated event:', error);
+        onEvent({
+          type: 'error',
+          data: { error: 'Failed to parse images data' }
+        });
+      }
+    });
+
+    // 2. 스토리 생성 완료 이벤트
+    eventSource.addEventListener('story_generated', (event) => {
+      try {
+        const data: BackendStoryData = JSON.parse(event.data);
+        console.log('📝 Story generated (backend spec)');
+        
+        onEvent({
+          type: 'story_generated',
+          data: { story: data.story || '' }
+        });
+      } catch (error) {
+        console.error('Error parsing story_generated event:', error);
+        onEvent({
+          type: 'error',
+          data: { error: 'Failed to parse story data' }
+        });
+      }
+    });
+
+    // 3. 키워드 생성 완료 이벤트
+    eventSource.addEventListener('keywords_generated', (event) => {
+      try {
+        const data: BackendKeywordsData = JSON.parse(event.data);
+        console.log('🏷️ Keywords generated (backend spec):', data.keywords?.length || 0);
+        
+        onEvent({
+          type: 'keywords_generated',
+          data: { keywords: data.keywords || [] }
+        });
+      } catch (error) {
+        console.error('Error parsing keywords_generated event:', error);
+        onEvent({
+          type: 'error',
+          data: { error: 'Failed to parse keywords data' }
+        });
+      }
+    });
+
+    // 4. 추천 생성 완료 이벤트 (백엔드 이벤트명: recommendation_generated)
+    eventSource.addEventListener('recommendation_generated', (event) => {
+      try {
+        const data: BackendRecommendationData = JSON.parse(event.data);
+        console.log('💡 Recommendation generated (backend spec):', data.reference_image_id);
+        
+        onEvent({
+          type: 'recommendation_ready',
+          data: { 
+            recommendationUrl: data.reference_image_url || '',
+            recommendationId: data.reference_image_id || ''
+          }
+        });
+        
+        // 추천 이미지가 생성되면 모든 과정 완료
+        onComplete?.();
+      } catch (error) {
+        console.error('Error parsing recommendation_generated event:', error);
+        onEvent({
+          type: 'error',
+          data: { error: 'Failed to parse recommendation data' }
+        });
+      }
+    });
+
+    // 5. 완료 이벤트
+    eventSource.addEventListener('done', (event) => {
+      try {
+        const data: BackendDoneData = JSON.parse(event.data);
+        console.log('✅ Generation process completed (backend spec):', data.ok);
+        
+        if (data.ok) {
+          onEvent({
+            type: 'complete',
+            data: {}
+          });
+        }
+        
+        eventSource.close();
+        onComplete?.();
+      } catch (error) {
+        console.error('Error parsing done event:', error);
+      }
+    });
+
+    // 6. 에러 이벤트
+    eventSource.addEventListener('error', (event) => {
+      try {
+        const data: BackendErrorData = JSON.parse((event as MessageEvent).data);
+        console.error('❌ SSE error event (backend spec):', data);
+        
+        onEvent({
+          type: 'error',
+          data: { error: `${data.step}: ${data.error}` }
+        });
+      } catch (error) {
+        console.error('Error parsing error event:', error);
+        onEvent({
+          type: 'error',
+          data: { error: 'Unknown error occurred' }
+        });
+      }
+    });
+
+    // 7. 생성 실패 이벤트
+    eventSource.addEventListener('generation_failed', (event) => {
+      try {
+        const data: BackendFailedData = JSON.parse(event.data);
+        console.error('❌ Generation failed (backend spec):', data);
+        
+        const errorMessage = data.reason === 'timeout' 
+          ? 'Generation timed out (90 seconds)' 
+          : `Generation failed: ${data.reason}${data.stage ? ` (${data.stage})` : ''}`;
+        
+        onEvent({
+          type: 'error',
+          data: { error: errorMessage }
+        });
+        
+        eventSource.close();
+        onError?.(new Event('generation_failed'));
+      } catch (error) {
+        console.error('Error parsing generation_failed event:', error);
+      }
+    });
+
+    // 8. Heartbeat/Ping (20초마다)
+    eventSource.addEventListener('ping', (event) => {
+      try {
+        const data: BackendPingData = JSON.parse(event.data);
+        console.log('💓 SSE heartbeat (backend spec):', new Date(data.t * 1000).toLocaleTimeString());
+        
+        onEvent({
+          type: 'ping',
+          data: { timestamp: data.t }
+        });
+      } catch {
+        // ping 파싱 실패는 무시
+      }
+    });
+
+    // 일반 에러 처리 (연결 실패, 네트워크 오류 등)
+    eventSource.onerror = (error) => {
+      console.error('SSE connection error:', error);
+      console.error('SSE readyState:', eventSource.readyState);
+      console.error('SSE url:', eventSource.url);
+      
+      // 연결 상태별 처리
+      switch (eventSource.readyState) {
+        case EventSource.CONNECTING:
+          console.log('SSE: Attempting to reconnect...');
+          break;
+        case EventSource.CLOSED:
+          console.log('SSE: Connection closed');
+          onEvent({
+            type: 'error',
+            data: { error: 'Connection lost during generation' }
+          });
+          break;
+        case EventSource.OPEN:
+          console.log('SSE: Connection is open but error occurred');
+          break;
+      }
+      
+      onError?.(error);
+    };
+
+    return eventSource;
+
+  } catch (error) {
+    console.error('Failed to create SSE connection:', error);
+    onError?.(new Event('connection_failed'));
+    return null;
+  }
+}
+
+// ===== API 함수들 =====
 
 /**
  * 새로운 히스토리 세션 생성
@@ -135,8 +406,6 @@ export async function deleteHistorySession(sessionId: string): Promise<boolean> 
   }
 }
 
-// ===== 이미지 생성 API =====
-
 /**
  * 비동기 이미지 생성 시작 (record_id 반환)
  */
@@ -188,192 +457,7 @@ export async function startImageGeneration(
   }
 }
 
-/**
- * SSE 연결을 통한 생성 과정 모니터링
- */
-export function createSSEConnection(
-  recordId: string,
-  onEvent: (eventData: SSEEventData) => void,
-  onError?: (error: Event) => void,
-  onComplete?: () => void
-): EventSource {
-  const url = `${API_BASE_URL}/api/v1/stream/${recordId}`;
-  console.log('🔗 Creating SSE connection to:', url);
-  
-  const eventSource = new EventSource(url);
-
-  // 이미지 생성 완료 이벤트
-  eventSource.addEventListener('images_generated', (event) => {
-    try {
-      const data = JSON.parse(event.data);
-      console.log('📸 Images generated:', data.image_urls?.length);
-      onEvent({ type: 'images_generated', data });
-    } catch (error) {
-      console.error('Error parsing images_generated event:', error);
-    }
-  });
-
-  // 스토리 생성 완료 이벤트
-  eventSource.addEventListener('story_generated', (event) => {
-    try {
-      const data = JSON.parse(event.data);
-      console.log('📝 Story generated');
-      onEvent({ type: 'story_generated', data });
-    } catch (error) {
-      console.error('Error parsing story_generated event:', error);
-    }
-  });
-
-  // 키워드 생성 완료 이벤트
-  eventSource.addEventListener('keywords_generated', (event) => {
-    try {
-      const data = JSON.parse(event.data);
-      console.log('🏷️ Keywords generated:', data.keywords?.length);
-      onEvent({ type: 'keywords_generated', data });
-    } catch (error) {
-      console.error('Error parsing keywords_generated event:', error);
-    }
-  });
-
-  // 추천 이미지 생성 완료 이벤트
-  eventSource.addEventListener('recommendation_ready', (event) => {
-    try {
-      const data = JSON.parse(event.data);
-      console.log('💡 Recommendation ready');
-      onEvent({ type: 'recommendation_ready', data });
-      
-      // 모든 과정이 완료되었으므로 연결 종료
-      eventSource.close();
-      onComplete?.();
-    } catch (error) {
-      console.error('Error parsing recommendation_ready event:', error);
-    }
-  });
-
-  // 에러 처리
-  eventSource.onerror = (error) => {
-    console.error('SSE connection error:', error);
-    onError?.(error);
-  };
-
-  // 연결 성공
-  eventSource.onopen = () => {
-    console.log('✅ SSE connection established');
-  };
-
-  return eventSource;
-}
-
-// ===== Layer Room 관리 API =====
-
-/**
- * 사용자의 Layer Room 목록 조회
- */
-export async function getLayerRooms(): Promise<LayerRoom[] | null> {
-  try {
-    const token = await getAuthToken();
-    if (!token) {
-      throw new Error('Authentication token required');
-    }
-
-    const response = await fetch(`${API_BASE_URL}/v1/layer_rooms`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const rooms = await response.json() as LayerRoom[];
-    console.log('✅ Layer rooms loaded:', rooms.length);
-    return rooms;
-  } catch (error) {
-    console.error('Get layer rooms error:', error);
-    return null;
-  }
-}
-
-/**
- * 특정 Room의 상세 정보 조회
- */
-export async function getRoomDetail(roomId: string): Promise<RoomDetailResponse | null> {
-  try {
-    const token = await getAuthToken();
-    if (!token) {
-      throw new Error('Authentication token required');
-    }
-
-    const response = await fetch(`${API_BASE_URL}/v1/layer_rooms/${roomId}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const roomDetail = await response.json() as RoomDetailResponse;
-    console.log('✅ Room detail loaded:', roomDetail.room_id);
-    return roomDetail;
-  } catch (error) {
-    console.error('Get room detail error:', error);
-    return null;
-  }
-}
-
-/**
- * 이미지를 Room에 핀하기
- */
-export async function pinToRoom(roomId: string, historyId: string): Promise<boolean> {
-  try {
-    const token = await getAuthToken();
-    if (!token) {
-      throw new Error('Authentication token required');
-    }
-
-    const requestData: PinToRoomRequest = {
-      history_id: historyId
-    };
-
-    const response = await fetch(`${API_BASE_URL}/v1/layer_rooms/${roomId}/pin`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestData),
-    });
-
-    if (response.status === 204) {
-      console.log('✅ Image pinned to room:', roomId);
-      return true;
-    }
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Pin to room failed:', errorText);
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error('Pin to room error:', error);
-    return false;
-  }
-}
-
-// ===== 기존 API 함수들 (호환성 유지) =====
-
-/**
- * 이미지 메타데이터 저장
- */
+// 기존 업로드 및 메타데이터 함수들 유지
 export async function saveImageMetadata(
   fileKey: string,
   type: "input" | "generated" = "input"
@@ -422,9 +506,6 @@ export async function saveImageMetadata(
   }
 }
 
-/**
- * 통합 업로드 함수
- */
 export async function uploadImageWithMetadata(
   file: File,
   type: "input" | "generated" = "input",
