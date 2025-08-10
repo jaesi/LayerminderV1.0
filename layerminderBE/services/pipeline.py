@@ -26,7 +26,7 @@ async def full_pipeline(
     try:
         # status -> processing
         supabase.table("history_records")\
-            .update({"image_status": "images_processing", 
+            .update({"image_status": "processing", 
                      "updated_at":now_iso()})\
             .eq("record_id", record_id).execute()
         
