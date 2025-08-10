@@ -78,7 +78,8 @@ async def stream_generation(record_id: str):
                     yield sse_event("error", {"step": "poll", "error": str(e)})
                     await asyncio.sleep(POLL_INTERVAL_SEC)
                     continue  # keep trying until timeout
-
+                
+                # Failures handling
                 if row.get("image_status") in ERROR_STATES_IMAGE:
                     yield sse_event("generation_failed", {"reason": "stage_failed", "stage": "image"})
                     return
@@ -94,12 +95,21 @@ async def stream_generation(record_id: str):
                     try:
                         imgs = (
                             supabase.table("history_record_images")
-                            .select("image_id,seq")
+                            .select("image_id,seq, images(url)")
                             .eq("record_id", record_id)
                             .order("seq")
                             .execute()
                             .data
                         ) or []
+                        # Flatten nested "images": {"url":"..."} into "url"
+                        imgs = [
+                            {
+                                "image_id": r.get("image_id"),
+                                "seq": r.get("seq"),
+                                "url": (r.get("images") or {}).get("url")
+                            }
+                            for r in imgs
+                        ]
                         yield sse_event("images_generated", imgs)
                         sent["image"] = True
                     except Exception as e:
@@ -147,10 +157,23 @@ async def stream_generation(record_id: str):
                     return
                 
                 if (not sent["recommendation"]) and (rec_status == 'ready'):
-                    yield sse_event("recommendation_generated", {
-                        "reference_image_id": row.get("reference_image_id")
-                    })
-                    sent["recommendation"] = True
+                    try:
+                        rec_row = (
+                            supabase.table("history_records")
+                            .select("reference_image_id, reference_image_pool(url)")
+                            .eq("record_id", record_id)
+                            .single()
+                            .execute()
+                            .data
+                        ) or {}
+                        payload = {
+                            "reference_image_id": rec_row.get("reference_image_id"),
+                            "reference_image_url": (rec_row.get("reference_image_pool") or {}).get("url")
+                        }
+                        yield sse_event("recommendation_generated", payload)
+                        sent["recommendation"] = True
+                    except Exception as e:
+                        yield sse_event("error", {"step": "recommendation", "error": str(e)})
 
                 # Done?
                 if all(sent.values()):
