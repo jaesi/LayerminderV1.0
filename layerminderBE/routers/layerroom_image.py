@@ -28,6 +28,7 @@ def add_image_to_room(
     body: RoomImageCreate,
     user_id: str = Depends(get_current_user),
 ):
+
     # 1) checking authority
     try:
         room_res = (
@@ -62,7 +63,10 @@ def add_image_to_room(
         raise HTTPException(404, "Image not found")
 
     now = datetime.now(timezone.utc).isoformat()
+    
+    
     to_insert = {
+        "room_image_id": str(uuid.uuid4()),
         "room_id": str(room_id),
         "image_id": str(body.image_id),
         "note": body.note,
@@ -76,9 +80,9 @@ def add_image_to_room(
     try:
         ins = supabase.table("room_images").insert(to_insert).execute()
     except APIError as e:
-        if getattr(e, "code", None) == "23505":  # UNIQUE(room_id, image_id) 가정 시
+        if getattr(e, "code", None) == "23505":  # UNIQUE(room_id, image_id)
             raise HTTPException(409, "Image already pinned in this room")
-        raise HTTPException(400, e.message or "Insert pin failed")
+        raise HTTPException(400, "Insert pin failed: " + e.message )
 
     row = (ins.data or [None])[0]
     if not row:
@@ -106,6 +110,7 @@ def list_images_in_room(
     """
     List images in a layer room.
     """
+    # 1) Owner check
     try:
         room_res = (
             supabase.table("layer_rooms")
@@ -127,24 +132,26 @@ def list_images_in_room(
     try:
         img_res = (
             supabase.table("room_images")
-            .select("images_id")
-            .eq("room_id", room_id)
+            .select("room_image_id, image_id, note, seq, images(url)")
+            .eq("room_id", str(room_id))
+            .order("seq")  # seq 순서로 정렬
             .execute()
         )
     except APIError as e:
-        raise HTTPException(400, e.message or "List pins failed")
-    rows = res.data or []
+        raise HTTPException(400, "List pins failed: " + e.message)
+    
+    rows = img_res.data or []
+    
     if not rows:
         raise HTTPException(404, "Image not found")
-    img_row = rows[0]
-    image_url = img_row.get("url")
+    print(rows)
     return [
         RoomImageOut(
-            id=row["id"],
+            room_image_id=row["room_image_id"],
             image_id=row["image_id"],
-            url=image_url,
-            note=row("note"),
-            seq=row("seq"),
+            url=row["images"]["url"],
+            note=row["note"],
+            seq=row["seq"],
         )
         for row in rows
     ]
