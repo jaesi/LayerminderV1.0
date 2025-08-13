@@ -1,19 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Pin, X } from 'lucide-react';
-import { dummyImages, keywords, boardsData } from '@/data/dummyData';
-import { HistorySession, GeneratedRow } from '@/types';
-
-interface RowSelectData {
-  rowIndex: number;
-  images: Array<{ id: number; src: string; isPinned: boolean }>;
-  keyword: string;
-  startImageIndex?: number;
-  story?: string; // AI 생성 스토리
-  generatedKeywords?: string[]; // AI 추출 키워드들  
-  recommendationImage?: string; // AI 추천 이미지
-}
+import { Pin, X, Trash2 } from 'lucide-react';
+import { dummyImages, keywords } from '@/data/dummyData';
+import { HistorySession, GeneratedRow, RoomImage, LayerRoom } from '@/types';
 
 interface GalleryProps {
   onTogglePin: (imageId: number, boardName?: string, createNew?: boolean) => void;
@@ -21,7 +11,15 @@ interface GalleryProps {
   boardNames: string[];
   onRowSelect: (rowData: {
     rowIndex: number;
-    images: Array<{ id: number; src: string; isPinned: boolean }>;
+    images: Array<{ 
+      id: number; 
+      src: string; 
+      isPinned: boolean;
+      type?: 'output' | 'reference';
+      imageId?: string;
+      fileKey?: string;
+      roomImageId?: string; // 추가
+    }>;
     keyword: string;
     startImageIndex?: number;
     story?: string;
@@ -33,6 +31,10 @@ interface GalleryProps {
   selectedRoomId: string | null;
   generatedRows: GeneratedRow[];
   historySessions: HistorySession[];
+  roomImages: RoomImage[];
+  roomImagesLoading: boolean;
+  rooms: LayerRoom[];
+  onRemoveImageFromRoom?: (roomImageId: string, imageId: string) => Promise<void>;
 }
 
 export default function Gallery({ 
@@ -44,7 +46,11 @@ export default function Gallery({
   selectedHistoryId,
   selectedRoomId,
   generatedRows,
-  historySessions
+  historySessions,
+  roomImages,
+  roomImagesLoading,
+  rooms,
+  onRemoveImageFromRoom
 }: GalleryProps) {
   const [pinModalImageId, setPinModalImageId] = useState<number | null>(null);
   const [pinModalPosition, setPinModalPosition] = useState<{top: number, left: number, width: number, height: number} | null>(null);
@@ -70,7 +76,6 @@ export default function Gallery({
     return shuffled;
   };
 
-  // 기존 getDisplayRows 함수를 찾아서 이렇게 교체
   const getDisplayRows = () => {
     if (viewMode === 'history' && selectedHistoryId) {
       // 선택된 히스토리의 생성된 이미지들 표시
@@ -97,10 +102,51 @@ export default function Gallery({
     }
 
     if (viewMode === 'room' && selectedRoomId) {
-      // TODO: Room 이미지들 로드해서 표시
-      // 지금은 빈 배열 반환
-      console.log('Loading room images for:', selectedRoomId);
-      return [];
+      // Room 이미지들을 Gallery 형식으로 변환
+      if (roomImagesLoading) {
+        return []; // 로딩 중에는 빈 배열
+      }
+      
+      if (roomImages.length === 0) {
+        return []; // 이미지가 없으면 빈 배열
+      }
+      
+      // Room 이미지들을 6개씩 묶어서 행으로 만들기
+      const rows = [];
+      const imagesPerRow = 6;
+      
+      for (let i = 0; i < roomImages.length; i += imagesPerRow - 1) { // -1은 키워드 공간 확보
+        const rowImages = roomImages.slice(i, i + imagesPerRow - 1);
+        
+        const items = [
+          ...rowImages.map((roomImg, index) => ({ 
+            type: 'output' as const, 
+            data: {
+              id: Date.now() + i + index,
+              src: roomImg.url,
+              isPinned: false,
+              type: 'output' as const,
+              imageId: roomImg.image_id,
+              roomImageId: roomImg.room_image_id // Room에서 삭제할 때 필요
+            }
+          })),
+          { type: 'keyword' as const, data: 'Room Images' }
+        ];
+        
+        rows.push({
+          items,
+          allImages: rowImages.map((roomImg, index) => ({
+            id: Date.now() + i + index,
+            src: roomImg.url,
+            isPinned: false,
+            type: 'output' as const,
+            imageId: roomImg.image_id,
+            roomImageId: roomImg.room_image_id
+          }))
+        });
+      }
+      
+      return rows;
     }
 
     // 기본 모드: 보드 미선택 시 기존 로직
@@ -294,8 +340,16 @@ export default function Gallery({
               )}
               {viewMode === 'room' && selectedRoomId && (
                 <>
-                  현재 룸: <strong>Room {selectedRoomId}</strong>
-                  <span className="ml-2 text-blue-500">(이미지 로딩 중...)</span>
+                  현재 룸: <strong>
+                    {rooms.find(r => r.id === selectedRoomId)?.name || 'Unknown Room'}
+                  </strong>
+                  {roomImagesLoading ? (
+                    <span className="ml-2 text-blue-500">(이미지 로딩 중...)</span>
+                  ) : (
+                    <span className="ml-2 text-blue-500">
+                      (이미지 {roomImages.length}개)
+                    </span>
+                  )}
                 </>
               )}
             </div>
@@ -329,9 +383,24 @@ export default function Gallery({
                         <div className="absolute top-1 left-1 w-3 h-3 bg-blue-500 rounded-full" title="AI Generated"></div>
                       )}
                       
+                      {/* Room 모드에서 삭제 버튼 추가 */}
+                      {viewMode === 'room' && onRemoveImageFromRoom && 'roomImageId' in image && image.roomImageId && (
+                        <button
+                          className="absolute top-1 left-1 p-1 bg-red-500 text-white shadow-md opacity-0 group-hover:opacity-100 transition-opacity rounded"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRemoveImageFromRoom(image.roomImageId!, image.imageId || '');
+                          }}
+                          title="룸에서 제거"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      )}
+                      
                       <button
                         className="absolute top-1 right-1 p-1 bg-white shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
                         onClick={(e) => handlePinClick(e, image.id)}
+                        title={viewMode === 'room' ? '다른 룸에 복사' : '룸에 저장'}
                       >
                         <Pin
                           size={12}

@@ -180,7 +180,7 @@ export interface DroppedFile {
   previewUrl: string;
 }
 
-// 새로운 GeneratedRow 타입 (세션/레코드 기반)
+// GeneratedRow 타입 
 export interface GeneratedRow {
   id: string; // record_id
   sessionId: string;
@@ -191,6 +191,7 @@ export interface GeneratedRow {
     type: 'output' | 'reference';
     imageId?: string;
     fileKey?: string;
+    roomImageId?: string;
   }>;
   keyword?: string;
   story?: string;
@@ -292,6 +293,7 @@ export interface BoardData {
     type: 'output' | 'reference';
     imageId?: string;
     fileKey?: string;
+    roomImageId?: string;
   }>;
   keyword: string;
 }
