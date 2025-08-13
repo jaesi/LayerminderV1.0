@@ -16,6 +16,10 @@ interface SidebarProps {
   onHistoryDelete: (historyId: string) => Promise<void>;
   onRoomDelete: (roomId: string) => Promise<void>;
   onRoomsRefresh: () => Promise<void>;
+  onCreateRoom: () => void;
+  onEditRoom: (room: LayerRoom) => void;
+  onToggleRoomVisibility: (room: LayerRoom) => Promise<void>;
+  onSaveToRoom: (historyId: string) => void;
 }
 
 export default function Sidebar({ 
@@ -29,7 +33,11 @@ export default function Sidebar({
   onRoomSelect,
   onHistoryDelete,
   onRoomDelete,
-  onRoomsRefresh
+  onRoomsRefresh,
+  onCreateRoom,
+  onEditRoom,
+  onToggleRoomVisibility,
+  onSaveToRoom
 }: SidebarProps) {
   const [historyDropdownOpen, setHistoryDropdownOpen] = useState<string | null>(null);
   const [roomDropdownOpen, setRoomDropdownOpen] = useState<string | null>(null);
@@ -111,8 +119,7 @@ export default function Sidebar({
                   <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded shadow-lg z-10 py-1 w-40">
                     <button
                       onClick={() => {
-                        // TODO: Save to Room 모달 열기
-                        console.log('Save to room:', session.session_id);
+                        onSaveToRoom(session.session_id);
                         setHistoryDropdownOpen(null);
                       }}
                       className="w-full text-left px-3 py-1 text-xs hover:bg-gray-100 flex items-center gap-2"
@@ -139,10 +146,7 @@ export default function Sidebar({
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-medium text-gray-600">My Rooms</h3>
           <button 
-            onClick={() => {
-              // TODO: New Room 모달 열기
-              console.log('Create new room');
-            }}
+            onClick={onCreateRoom}
             className="p-1 hover:bg-gray-100 rounded"
             title="새 룸 만들기"
           >
@@ -191,8 +195,7 @@ export default function Sidebar({
                   <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded shadow-lg z-10 py-1 w-40">
                     <button
                       onClick={() => {
-                        // TODO: Rename 모달 열기
-                        console.log('Rename room:', room.id);
+                        onEditRoom(room);
                         setRoomDropdownOpen(null);
                       }}
                       className="w-full text-left px-3 py-1 text-xs hover:bg-gray-100 flex items-center gap-2"
@@ -202,8 +205,7 @@ export default function Sidebar({
                     </button>
                     <button
                       onClick={() => {
-                        // TODO: Toggle public/private
-                        console.log('Toggle visibility:', room.id);
+                        onToggleRoomVisibility(room);
                         setRoomDropdownOpen(null);
                       }}
                       className="w-full text-left px-3 py-1 text-xs hover:bg-gray-100 flex items-center gap-2"
