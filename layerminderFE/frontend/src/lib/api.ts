@@ -1,8 +1,10 @@
 import { 
-  ImageMetadataResponse, 
-  GenerateResponse, 
+  CreateSessionResponse,
+  HistorySession,
   GenerateRequest,
-  ImageMetadataRequest 
+  GenerateResponse,
+  ImageMetadataResponse,
+  ImageMetadataRequest
 } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
@@ -19,9 +21,453 @@ async function getAuthToken(): Promise<string | null> {
   }
 }
 
+// ===== SE 이벤트 타입들 =====
+export interface BackendImageData {
+  image_id: string;
+  seq: number;
+  url: string;
+}
+
+export interface BackendStoryData {
+  story: string;
+}
+
+export interface BackendKeywordsData {
+  keywords: string[];
+}
+
+export interface BackendRecommendationData {
+  reference_image_id: string;
+  reference_image_url: string;
+}
+
+export interface BackendErrorData {
+  step: string;
+  error: string;
+}
+
+export interface BackendFailedData {
+  reason: string;
+  stage?: string;
+}
+
+export interface BackendPingData {
+  t: number;
+}
+
+export interface BackendDoneData {
+  ok: boolean;
+}
+
+// 통합 이벤트 타입
+export interface ProcessedSSEEvent {
+  type: 'images_generated' | 'story_generated' | 'keywords_generated' | 'recommendation_ready' | 'error' | 'complete' | 'ping';
+  data: {
+    image_urls?: string[];
+    story?: string;
+    keywords?: string[];
+    recommendationUrl?: string;
+    recommendationId?: string;
+    error?: string;
+    timestamp?: number;
+  };
+}
+
 /**
- * 이미지 메타데이터 저장
+ * SSE 연결
  */
+export async function createSSEConnectionWithAuth(
+  recordId: string,
+  onEvent: (event: ProcessedSSEEvent) => void,
+  onError?: (error: Event) => void,
+  onComplete?: () => void
+): Promise<EventSource | null> {
+  try {
+    const token = await getAuthToken();
+    
+    // 인증이 필요한 경우 토큰을 쿼리 파라미터로 전달
+    let url = `${API_BASE_URL}/api/v1/stream/${recordId}`;
+    // if (token) {
+    //   url += `?token=${encodeURIComponent(token)}`;
+    // }
+    
+    console.log('🔗 Creating SSE connection to:', url);
+    
+    const eventSource = new EventSource(url);
+    
+    // 연결 성공
+    eventSource.onopen = () => {
+      console.log('✅ SSE connection established');
+    };
+
+    // 1. 이미지 생성 완료 이벤트
+    eventSource.addEventListener('images_generated', (event) => {
+      try {
+        const data: BackendImageData[] = JSON.parse(event.data);
+        console.log('📸 Images generated (backend spec):', data.length, 'images');
+        
+        // URL들만 추출하여 순서대로 정렬
+        const imageUrls = data
+          .sort((a, b) => a.seq - b.seq)  // seq로 정렬
+          .map(item => item.url)
+          .filter(url => url);  // null/undefined 제거
+        
+        onEvent({
+          type: 'images_generated',
+          data: { image_urls: imageUrls }
+        });
+      } catch (error) {
+        console.error('Error parsing images_generated event:', error);
+        onEvent({
+          type: 'error',
+          data: { error: 'Failed to parse images data' }
+        });
+      }
+    });
+
+    // 2. 스토리 생성 완료 이벤트
+    eventSource.addEventListener('story_generated', (event) => {
+      try {
+        const data: BackendStoryData = JSON.parse(event.data);
+        console.log('📝 Story generated (backend spec)');
+        
+        onEvent({
+          type: 'story_generated',
+          data: { story: data.story || '' }
+        });
+      } catch (error) {
+        console.error('Error parsing story_generated event:', error);
+        onEvent({
+          type: 'error',
+          data: { error: 'Failed to parse story data' }
+        });
+      }
+    });
+
+    // 3. 키워드 생성 완료 이벤트
+    eventSource.addEventListener('keywords_generated', (event) => {
+      try {
+        const data: BackendKeywordsData = JSON.parse(event.data);
+        console.log('🏷️ Keywords generated (backend spec):', data.keywords?.length || 0);
+        
+        onEvent({
+          type: 'keywords_generated',
+          data: { keywords: data.keywords || [] }
+        });
+      } catch (error) {
+        console.error('Error parsing keywords_generated event:', error);
+        onEvent({
+          type: 'error',
+          data: { error: 'Failed to parse keywords data' }
+        });
+      }
+    });
+
+    // 4. 추천 생성 완료 이벤트 (백엔드 이벤트명: recommendation_generated)
+    eventSource.addEventListener('recommendation_generated', (event) => {
+      try {
+        const data: BackendRecommendationData = JSON.parse(event.data);
+        console.log('💡 Recommendation generated (backend spec):', data.reference_image_id);
+        
+        onEvent({
+          type: 'recommendation_ready',
+          data: { 
+            recommendationUrl: data.reference_image_url || '',
+            recommendationId: data.reference_image_id || ''
+          }
+        });
+        
+        // 추천 이미지가 생성되면 모든 과정 완료
+        onComplete?.();
+      } catch (error) {
+        console.error('Error parsing recommendation_generated event:', error);
+        onEvent({
+          type: 'error',
+          data: { error: 'Failed to parse recommendation data' }
+        });
+      }
+    });
+
+    // 5. 완료 이벤트
+    eventSource.addEventListener('done', (event) => {
+      try {
+        const data: BackendDoneData = JSON.parse(event.data);
+        console.log('✅ Generation process completed (backend spec):', data.ok);
+        
+        if (data.ok) {
+          onEvent({
+            type: 'complete',
+            data: {}
+          });
+        }
+        
+        eventSource.close();
+        onComplete?.();
+      } catch (error) {
+        console.error('Error parsing done event:', error);
+      }
+    });
+
+    // 6. 에러 이벤트
+    // 6. 에러 이벤트 처리 수정
+    eventSource.addEventListener('error', (event: MessageEvent) => {
+      try {
+        // event.data가 비어있거나 undefined인 경우 처리
+        if (!event.data || event.data === 'undefined') {
+          onEvent({
+            type: 'error',
+            data: { error: 'Connection error occurred' }
+          });
+          return;
+        }
+        
+        const data: BackendErrorData = JSON.parse(event.data);
+        console.error('❌ SSE error event (backend spec):', data);
+        
+        onEvent({
+          type: 'error',
+          data: { error: `${data.step}: ${data.error}` }
+        });
+      } catch (error) {
+        console.error('Error parsing error event:', error);
+        onEvent({
+          type: 'error',
+          data: { error: 'Connection error occurred' }
+        });
+      }
+    });
+
+    // 7. 생성 실패 이벤트
+    eventSource.addEventListener('generation_failed', (event) => {
+      try {
+        const data: BackendFailedData = JSON.parse(event.data);
+        console.error('❌ Generation failed (backend spec):', data);
+        
+        const errorMessage = data.reason === 'timeout' 
+          ? 'Generation timed out (90 seconds)' 
+          : `Generation failed: ${data.reason}${data.stage ? ` (${data.stage})` : ''}`;
+        
+        onEvent({
+          type: 'error',
+          data: { error: errorMessage }
+        });
+        
+        eventSource.close();
+        onError?.(new Event('generation_failed'));
+      } catch (error) {
+        console.error('Error parsing generation_failed event:', error);
+      }
+    });
+
+    // 8. Heartbeat/Ping (20초마다)
+    eventSource.addEventListener('ping', (event) => {
+      try {
+        const data: BackendPingData = JSON.parse(event.data);
+        console.log('💓 SSE heartbeat (backend spec):', new Date(data.t * 1000).toLocaleTimeString());
+        
+        onEvent({
+          type: 'ping',
+          data: { timestamp: data.t }
+        });
+      } catch {
+        // ping 파싱 실패는 무시
+      }
+    });
+
+    // 일반 에러 처리 (연결 실패, 네트워크 오류 등)
+    eventSource.onerror = (error) => {
+      console.error('SSE connection error:', error);
+      console.error('SSE readyState:', eventSource.readyState);
+      console.error('SSE url:', eventSource.url);
+      
+      // 연결 상태별 처리
+      switch (eventSource.readyState) {
+        case EventSource.CONNECTING:
+          console.log('SSE: Attempting to reconnect...');
+          break;
+        case EventSource.CLOSED:
+          console.log('SSE: Connection closed');
+          onEvent({
+            type: 'error',
+            data: { error: 'Connection lost during generation' }
+          });
+          break;
+        case EventSource.OPEN:
+          console.log('SSE: Connection is open but error occurred');
+          break;
+      }
+      
+      onError?.(error);
+    };
+
+    return eventSource;
+
+  } catch (error) {
+    console.error('Failed to create SSE connection:', error);
+    onError?.(new Event('connection_failed'));
+    return null;
+  }
+}
+
+// ===== API 함수들 =====
+
+/**
+ * 새로운 히스토리 세션 생성
+ */
+export async function createHistorySession(): Promise<CreateSessionResponse | null> {
+  try {
+    const token = await getAuthToken();
+    if (!token) {
+      throw new Error('Authentication token required');
+    }
+
+    console.log('🚀 Creating new history session...');
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/history_sessions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Create session failed:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText
+      });
+      throw new Error(`HTTP error! status: ${response.status}, details: ${errorText}`);
+    }
+
+    const data = await response.json() as CreateSessionResponse;
+    console.log('✅ History session created:', data.session_id);
+    return data;
+  } catch (error) {
+    console.error('Create history session error:', error);
+    return null;
+  }
+}
+
+/**
+ * 사용자의 히스토리 세션 목록 조회
+ */
+export async function getHistorySessions(): Promise<HistorySession[] | null> {
+  try {
+    const token = await getAuthToken();
+    if (!token) {
+      throw new Error('Authentication token required');
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/history_sessions`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const sessions = await response.json() as HistorySession[];
+    console.log('✅ History sessions loaded:', sessions.length);
+    return sessions;
+  } catch (error) {
+    console.error('Get history sessions error:', error);
+    return null;
+  }
+}
+
+/**
+ * 히스토리 세션 삭제
+ */
+export async function deleteHistorySession(sessionId: string): Promise<boolean> {
+  try {
+    const token = await getAuthToken();
+    if (!token) {
+      throw new Error('Authentication token required');
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/history_sessions/${sessionId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (response.status === 204) {
+      console.log('✅ History session deleted:', sessionId);
+      return true;
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Delete session failed:', errorText);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Delete history session error:', error);
+    return false;
+  }
+}
+
+/**
+ * 비동기 이미지 생성 시작 (record_id 반환)
+ */
+export async function startImageGeneration(
+  sessionId: string,
+  imageKeys: string[],
+  keyword?: string
+): Promise<GenerateResponse | null> {
+  try {
+    const token = await getAuthToken();
+    if (!token) {
+      console.warn('No auth token available for generate API');
+      return null;
+    }
+
+    const requestData: GenerateRequest = {
+      session_id: sessionId,
+      input_image_keys: imageKeys,
+      keyword: keyword,
+    };
+
+    console.log('🎨 Starting image generation:', requestData);
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(requestData),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Generate API failed:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText
+      });
+      throw new Error(`HTTP error! status: ${response.status}, details: ${errorText}`);
+    }
+
+    const data = await response.json() as GenerateResponse;
+    console.log('✅ Generation started, record_id:', data.record_id);
+    return data;
+  } catch (error) {
+    console.error('Start image generation error:', error);
+    return null;
+  }
+}
+
+// 기존 업로드 및 메타데이터 함수들 유지
 export async function saveImageMetadata(
   fileKey: string,
   type: "input" | "generated" = "input"
@@ -38,7 +484,6 @@ export async function saveImageMetadata(
       'Authorization': `Bearer ${token}`,
     };
 
-    // 메타데이터 요청 데이터 생성
     const requestData: ImageMetadataRequest = {
       file_key: fileKey,
       type: type,
@@ -71,10 +516,6 @@ export async function saveImageMetadata(
   }
 }
 
-
-/**
- * 통합 업로드 함수 
- */
 export async function uploadImageWithMetadata(
   file: File,
   type: "input" | "generated" = "input",
@@ -82,7 +523,6 @@ export async function uploadImageWithMetadata(
   try {
     console.log('🚀 Starting direct upload process for:', file.name);
 
-    // 사용자 ID 가져오기
     let userId = 'guest-user';
     try {
       const { getCurrentUser } = await import('@/lib/supabase');
@@ -94,9 +534,8 @@ export async function uploadImageWithMetadata(
       console.warn('Could not get current user, using guest:', authError);
     }
 
-    // 1단계: 프론트엔드에서 직접 Supabase Storage에 업로드
-    const { uploadImageDirect : uploadDirect } = await import('@/lib/supabase');
-    const uploadResult = await uploadDirect(file, userId);
+    const { uploadImageDirect } = await import('@/lib/supabase');
+    const uploadResult = await uploadImageDirect(file, userId);
     
     if (!uploadResult) {
       throw new Error('Direct upload failed');
@@ -104,15 +543,12 @@ export async function uploadImageWithMetadata(
 
     console.log('✅ File uploaded directly to Supabase:', uploadResult);
 
-    // 2단계: 백엔드에 메타데이터 저장 (새 API 스펙 사용)
     const metadataResult = await saveImageMetadata(
       uploadResult.fileKey,
       type
     );
 
-    // 백엔드에서 받은 image_id 사용, 실패시 fallback
     const imageId = metadataResult?.image_id || `direct_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-    // 백엔드에서 받은 public URL 사용, 실패시 기존 URL 사용
     const publicUrl = metadataResult?.url || uploadResult.publicUrl;
 
     console.log('✅ Upload with metadata process completed');
@@ -128,107 +564,3 @@ export async function uploadImageWithMetadata(
     return null;
   }
 }
-
-/**
- * AI 이미지 생성
- */
-export async function generateImages(
-  imageKeys: string[],  
-  keyword?: string
-): Promise<GenerateResponse | null> {
-  try {
-    const token = await getAuthToken();
-    if (!token) {
-      console.warn('No auth token available for generate API');
-      return null;
-    }
-    
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    };
-
-    // 새로운 백엔드 스펙에 맞는 요청 데이터
-    const requestData: GenerateRequest = {
-      input_image_keys: imageKeys,
-      keyword: keyword,
-    };
-
-    console.log('🎨 Calling generate API with new spec:', requestData);
-    
-    const response = await fetch(`${API_BASE_URL}/api/v1/generate`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(requestData),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Generate API failed:', {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorText
-      });
-      throw new Error(`HTTP error! status: ${response.status}, details: ${errorText}`);
-    }
-
-    const data = await response.json() as GenerateResponse;
-    console.log('✅ Generate API successful:', data);
-    return data;
-  } catch (error) {
-    console.error('Generate images error:', error);
-    return null;
-  }
-}
-
-/**
- * 생성된 이미지들의 메타데이터를 백엔드에 자동 등록
- */
-export async function registerGeneratedImageMetadata(
-  imageKeys: string[]
-): Promise<ImageMetadataResponse[]> {
-  const results: ImageMetadataResponse[] = [];
-  
-  for (const imageKey of imageKeys) {
-    try {
-      const result = await saveImageMetadata(imageKey, "generated");
-      if (result) {
-        results.push(result);
-      }
-    } catch (error) {
-      console.error(`Failed to register metadata for ${imageKey}:`, error);
-    }
-  }
-  
-  return results;
-}
-
-// // 사용자 이미지 조회 (기존 유지)
-// export async function getUserImages(userId: string): Promise<UserImagesResponse | null> {
-//   try {
-//     const token = await getAuthToken();
-    
-//     const headers: Record<string, string> = {
-//       'Content-Type': 'application/json',
-//     };
-
-//     if (token) {
-//       headers['Authorization'] = `Bearer ${token}`;
-//     }
-    
-//     const response = await fetch(`${API_BASE_URL}/api/v1/images/user/${userId}`, {
-//       method: 'GET',
-//       headers,
-//     });
-
-//     if (!response.ok) {
-//       throw new Error(`HTTP error! status: ${response.status}`);
-//     }
-
-//     const data = await response.json() as UserImagesResponse;
-//     return data;
-//   } catch (error) {
-//     console.error('Get user images error:', error);
-//     return null;
-//   }
-// }

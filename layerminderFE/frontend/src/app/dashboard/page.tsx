@@ -1,37 +1,60 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Navigation from '@/components/dashboard/Navigation';
 import Sidebar from '@/components/dashboard/Sidebar';
 import Gallery from '@/components/dashboard/Gallery';
 import MainPanel from '@/components/dashboard/MainPanel';
 import TopPanel from '@/components/dashboard/TopPanel';
 import { boardsData } from '@/data/dummyData';
-import { DroppedFile, GeneratedRow } from '@/types';
-import { uploadImageWithMetadata, generateImages, registerGeneratedImageMetadata } from '@/lib/api';
+import { GeneratedRow, HistorySession } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
+import { getHistorySessions } from '@/lib/api';
 
-export default function Home() {
+interface RowSelectData {
+  rowIndex: number;
+  images: Array<{ id: number; src: string; isPinned: boolean }>;
+  keyword: string;
+  startImageIndex?: number;
+  story?: string;
+  generatedKeywords?: string[];
+  recommendationImage?: string;
+}
+
+export default function Dashboard() {
   const { user, profile, loading } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [pinnedImages, setPinnedImages] = useState<number[]>([]);
   const [topPanelMode, setTopPanelMode] = useState<'brand' | 'generate' | 'details'>('brand');
-  const [selectedRowData, setSelectedRowData] = useState<{
-    rowIndex: number;
-    images: Array<{ id: number; src: string; isPinned: boolean }>;
-    keyword: string;
-    startImageIndex?: number;
-  } | null>(null);
-  const [generatedImages, setGeneratedImages] = useState<string[]>([]);
+  const [selectedRowData, setSelectedRowData] = useState<RowSelectData | null>(null);
   const [selectedBoardId, setSelectedBoardId] = useState<number | null>(null);
   const [generatedRows, setGeneratedRows] = useState<GeneratedRow[]>([]);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [historySessions, setHistorySessions] = useState<HistorySession[]>([]);
 
   const [boardNames, setBoardNames] = useState([
     'Sofa', 'Lounge Chair', 'Coffee Table', 'Stool', 'Bench', 'Daybed',
     'Console', 'Dining Table', 'Armless Chair', 'Arm Chair', 'Bar Chair',
     'Desk', 'Storage', 'Cabinet', 'Bed Headboard', 'Mirror', 'Lighting', 'Artwork'
   ]);
+
+  // 히스토리 세션 로드
+  useEffect(() => {
+    const loadHistorySessions = async () => {
+      if (user) {
+        try {
+          const sessions = await getHistorySessions();
+          if (sessions) {
+            setHistorySessions(sessions);
+            console.log('✅ History sessions loaded:', sessions.length);
+          }
+        } catch (error) {
+          console.error('Failed to load history sessions:', error);
+        }
+      }
+    };
+
+    loadHistorySessions();
+  }, [user]);
 
   // 로딩 중이거나 로그인되지 않은 경우 처리
   if (loading) {
@@ -83,131 +106,58 @@ export default function Home() {
     return board?.keyword || 'Generated';
   };
 
-// dashboard/page.tsx - handleGenerate 함수 수정
-const handleGenerate = async (files: DroppedFile[], keywords: string[]) => {
-  setIsGenerating(true);
-  
-  try {
-    console.log('🚀 Starting generation with DIRECT upload method...');
-    const userId = user?.id || 'guest-user';
-
-    // ✅ 프론트엔드에서 직접 Supabase에 업로드 + 메타데이터 저장
-    console.log('📤 Using DIRECT Supabase upload with metadata...');
+  // 새로운 생성 결과 처리 (SSE를 통해 받은 완전한 결과)
+  const handleGenerationComplete = (result: GeneratedRow) => {
+    console.log('🎉 Generation completed:', result);
     
-    const uploadPromises = files.map(async (item) => {
-      // 1. 직접 Supabase Storage에 업로드 + 메타데이터 저장
-      const uploadResult = await uploadImageWithMetadata(
-        item.file,
-        'input'
-      );
-      
-      if (!uploadResult) {
-        throw new Error(`업로드 실패: ${item.file.name}`);
-      }
-      
-      return uploadResult;
-    });
-
-    const uploadResults = await Promise.all(uploadPromises);
-    console.log('✅ All files uploaded with metadata:', uploadResults.length);
-
-    // ✅ 2단계: AI 이미지 생성 (새 API 스펙)
-    console.log('🎨 Calling generate API with new spec...');
-    const keyword = keywords.length > 0 ? keywords[0] : 
-                  (selectedBoardId ? getBoardKeyword(selectedBoardId) : undefined);
-
-    const generateResult = await generateImages(
-      uploadResults.map(r => r.fileKey),  // user_id 매개변수 제거
-      keyword
-    );
-
-    if (!generateResult) {
-      throw new Error('이미지 생성에 실패했습니다.');
-    }
-
-    console.log('✅ Images generated:', generateResult.urls.length);
-
-    // ✅ 3단계: 생성된 이미지들의 메타데이터를 백엔드에 등록
-    console.log('📝 Registering generated image metadata...');
-    const generatedMetadata = await registerGeneratedImageMetadata(generateResult.image_keys);
-    console.log('✅ Generated image metadata registered:', generatedMetadata.length);
-
-    // ✅ 4단계: UI 업데이트 (새 응답 스펙에 맞춤)
-    const newGeneratedImages = generateResult.urls;  // 직접 URLs 배열 사용
-    setGeneratedImages(newGeneratedImages);
+    // 생성된 행을 목록에 추가
+    setGeneratedRows(prev => [result, ...prev]);
+    
+    // TopPanel을 generate 모드로 전환하고 결과 표시
     setTopPanelMode('generate');
-
-    const newGeneratedRow: GeneratedRow = {
-      id: `generated_${Date.now()}`,
-      images: [
-        // 생성된 이미지들 (새 응답 스펙 사용)
-        ...generateResult.urls.map((url, index) => ({
-          id: Date.now() + index + 1,
-          src: url,
-          isPinned: false,
-          type: 'output' as const,
-          imageId: generatedMetadata[index]?.image_id || `gen_${Date.now()}_${index}`,
-          fileKey: generateResult.image_keys[index]
-        })),
-        // 참조 이미지
-        {
-          id: Date.now() + 1000,
-          src: uploadResults[0].publicUrl,
-          isPinned: false,
-          type: 'reference' as const,
-          imageId: uploadResults[0].imageId,
-          fileKey: uploadResults[0].fileKey
-        }
-      ],
-      keyword: keyword || 'Generated',
-      boardId: selectedBoardId || undefined,
-      createdAt: new Date(),
-      metadata: {
-        inputImages: uploadResults.map(r => r.fileKey),
-        generationTime: Date.now(),
-        generatedBy: user?.id || 'guest',
-      }
-    };
-
-    setGeneratedRows(prev => [newGeneratedRow, ...prev]);
-    
-    console.log('✅ Generation complete with new API spec!', { 
-      boardId: selectedBoardId, 
-      keyword: keyword,
-      generatedCount: generateResult.urls.length,
-      uploadMethod: 'direct_supabase_with_new_api',
-      userId: userId
+    setSelectedRowData({
+      rowIndex: 0, // 새로 생성된 첫 번째 행
+      images: result.images,
+      keyword: result.keyword || 'Generated',
+      startImageIndex: 0,
+      story: result.story,
+      generatedKeywords: result.generatedKeywords,
+      recommendationImage: result.recommendationImage
     });
 
-  } catch (error) {
-    console.error('❌ Generation failed:', error);
-    throw error;
-  } finally {
-    setIsGenerating(false);
-  }
-};
+    // 히스토리 세션 목록 새로고침 (새 세션이 생성되었을 수 있음)
+    if (user) {
+      getHistorySessions().then(sessions => {
+        if (sessions) {
+          setHistorySessions(sessions);
+        }
+      });
+    }
+  };
 
-  const handleRowSelect = (rowData: {
-    rowIndex: number;
-    images: Array<{ id: number; src: string; isPinned: boolean }>;
-    keyword: string;
-    startImageIndex?: number;
-  }) => {
+  // 행 선택 핸들러
+  const handleRowSelect = (rowData: RowSelectData) => {
     setSelectedRowData(rowData);
-    setTopPanelMode('details');
+    
+    // 새로 생성된 이미지인 경우 generate 모드로, 기존 이미지인 경우 details 모드로
+    const isNewlyGenerated = generatedRows.some(row => 
+      row.images.some(img => 
+        rowData.images.some(selectedImg => selectedImg.src === img.src)
+      )
+    );
+    
+    setTopPanelMode(isNewlyGenerated ? 'generate' : 'details');
   };
 
   const handleCloseTopPanel = () => {
     setTopPanelMode('brand');
     setSelectedRowData(null);
-    setGeneratedImages([]);
   };
 
   const handleBoardSelect = (boardId: number | null) => {
     setSelectedBoardId(boardId);
     setTopPanelMode('brand');
     setSelectedRowData(null);
-    setGeneratedImages([]);
   };
 
   return (
@@ -226,10 +176,7 @@ const handleGenerate = async (files: DroppedFile[], keywords: string[]) => {
         }`}>
           {/* Main Panel */}
           <div className="w-[30%] flex-shrink-0">
-            <MainPanel 
-              onGenerate={handleGenerate} 
-              isGenerating={isGenerating}
-            />
+            <MainPanel onGenerate={handleGenerationComplete} />
           </div>
           
           {/* Gallery Area with TopPanel */}
@@ -239,7 +186,6 @@ const handleGenerate = async (files: DroppedFile[], keywords: string[]) => {
               <TopPanel 
                 mode={topPanelMode}
                 selectedRowData={selectedRowData}
-                generatedImages={generatedImages}
                 onClose={handleCloseTopPanel}
               />
             </div>
@@ -259,13 +205,21 @@ const handleGenerate = async (files: DroppedFile[], keywords: string[]) => {
         </div>
       </div>
       
-      {/* 사용자 정보 디버그 (개발용) */}
-      {process.env.NODE_ENV === 'development' && user && (
-        <div className="fixed bottom-4 left-4 bg-black bg-opacity-75 text-white p-2 text-xs rounded max-w-xs">
-          <div>User ID: {user.id}</div>
-          <div>Email: {user.email}</div>
-          {profile && <div>Backend Profile: ✅</div>}
-          <div className="text-green-400">Upload: Direct Supabase SDK ✅</div>
+      {/* 개발 정보 디스플레이 */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="fixed bottom-4 left-4 bg-black bg-opacity-75 text-white p-2 text-xs rounded max-w-xs space-y-1">
+          <div className="text-yellow-400 font-bold">🚀 New API Structure</div>
+          {user && (
+            <>
+              <div>User: {user.email}</div>
+              {profile && <div>Backend Profile: ✅</div>}
+            </>
+          )}
+          <div>Generated Rows: {generatedRows.length}</div>
+          <div>History Sessions: {historySessions.length}</div>
+          <div className="text-green-400">✅ SSE Generation Flow</div>
+          <div className="text-blue-400">✅ Session Management</div>
+          <div className="text-purple-400">✅ Real-time Updates</div>
         </div>
       )}
     </div>

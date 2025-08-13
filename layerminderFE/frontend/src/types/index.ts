@@ -1,120 +1,189 @@
-// API 응답 타입들
-
-// 메타데이터 등록 응답
-export interface ImageMetadataResponse {
-  image_id: string
-  url: string;
-  type: string;
+// ===== 히스토리 세션 관련 타입들 =====
+export interface HistorySession {
+  session_id: string;
+  user_id: string;
   created_at: string;
+  updated_at: string;
 }
 
-// ai 생성 응답
-export interface GenerateResponse {
-  image_keys: string[];   
-  urls: string[]; 
+export interface CreateSessionResponse {
+  session_id: string;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
 }
 
-// 새로운 업로드 관련 타입들
-export interface UploadUrlResponse {
-  success: boolean;
-  upload_url: string;
-  public_url: string;
-  file_key: string;
-  expires: number;
+export interface HistorySessionsResponse {
+  sessions: HistorySession[];
 }
 
-export interface UploadUrlRequest {
-  file_name: string;
-  file_type: string;
-}
-
-// API 요청 타입들 
-// 메타데이터 등록 요청
-export interface ImageMetadataRequest {
-  file_key: string;
-  type: "input" | "generated";
-}
-// ai 생성 요청
+// ===== 생성 관련 타입들 =====
 export interface GenerateRequest {
+  session_id: string;
   input_image_keys: string[];
   keyword?: string;
 }
 
-// 메타데이터 타입들 
-export interface ImageMetadata {
-  originalName?: string;
-  size?: number;
-  type?: string;
-  uploadedAt?: string;
-  uploadedBy?: string;
-  boardId?: string;
+export interface GenerateResponse {
+  record_id: string;
+  image_status: 'pending' | 'processing' | 'ready';
+}
+
+// ===== SSE 이벤트 타입들 =====
+export interface BackendSSEImageEvent {
+  // image_id와 seq 배열
+  data: Array<{ image_id: string; seq: number }>;
+}
+
+export interface BackendSSEStoryEvent {
+  // story 필드를 포함한 객체
+  data: { story?: string };
+}
+
+export interface BackendSSEKeywordsEvent {
+  // keywords 필드 (string 또는 array)
+  data: { keywords?: string | string[] };
+}
+
+export interface BackendSSERecommendationEvent {
+  // reference_image_id
+  data: { reference_image_id?: string };
+}
+
+export interface BackendSSEErrorEvent {
+  data: { step: string; error: string };
+}
+
+export interface BackendSSEFailedEvent {
+  data: { reason: string; stage?: string };
+}
+
+export interface BackendSSEPingEvent {
+  data: { t: number };
+}
+
+export interface BackendSSEDoneEvent {
+  data: { ok: boolean };
+}
+
+export interface ProcessedSSEEvent {
+  type: 'images_generated' | 'story_generated' | 'keywords_generated' | 'recommendation_ready' | 'error' | 'complete' | 'ping';
+  data: {
+    image_urls?: string[];
+    story?: string;
+    keywords?: string[];
+    recommendationUrl?: string;
+    recommendationId?: string;
+    error?: string;
+    timestamp?: number;
+  };
+}
+
+// 프론트엔드에서 사용할 통합 이벤트 타입 (기존 유지하되 optional로 변경)
+export interface SSEImageEvent {
+  image_urls?: string[];
+}
+
+export interface SSEStoryEvent {
+  story?: string;
+}
+
+export interface SSEKeywordsEvent {
   keywords?: string[];
-  [key: string]: unknown; // 추가 메타데이터를 위한 인덱스 시그니처
 }
 
-// 사용자 이미지 조회 응답
-export interface UserImagesResponse {
-  success: boolean;
-  images: UserImage[];
+export interface SSERecommendationEvent {
+  url?: string;
 }
 
-export interface UserImage {
-  id: string;
-  user_id: string;
-  type: string;
-  file_key: string;
-  meta: ImageMetadata | null;
+export interface SSEErrorEvent {
+  error?: string;
+}
+
+export type SSEEventData = 
+  | { type: 'images_generated'; data: SSEImageEvent }
+  | { type: 'story_generated'; data: SSEStoryEvent }
+  | { type: 'keywords_generated'; data: SSEKeywordsEvent }
+  | { type: 'recommendation_ready'; data: SSERecommendationEvent }
+  | { type: 'error'; data: SSEErrorEvent };
+
+// ===== Room 관련 타입들 =====
+export interface LayerRoom {
+  room_id: string;
+  name: string;
   created_at: string;
+}
+
+export interface LayerRoomsResponse {
+  rooms: LayerRoom[];
+}
+
+export interface PinToRoomRequest {
+  history_id: string;
+}
+
+export interface RoomHistoryImage {
+  image_id: string;
   url: string;
 }
 
-// 드롭된 파일 타입
-export interface DroppedFile {
-  id: string;
-  file: File;
-  previewUrl: string;
+export interface RoomHistory {
+  history_id: string;
+  story: string;
+  images: RoomHistoryImage[];
 }
 
-// 업로드된 이미지 정보
-export interface UploadedImage {
-  imageId: string;
-  fileKey: string;
-  publicUrl: string;
-  file: File;
+export interface RoomDetailResponse {
+  room_id: string;
+  name: string;
+  histories: RoomHistory[];
 }
 
-// 새로운 통합 업로드 결과 타입
+// ===== 기존 타입들 (호환성 유지) =====
+export interface ImageMetadataResponse {
+  image_id: string;
+  url: string;
+  type: string;
+  created_at: string;
+}
+
+export interface ImageMetadataRequest {
+  file_key: string;
+  type: "input" | "generated";
+}
+
 export interface UploadResult {
   imageId: string;
   publicUrl: string;
   fileKey: string;
 }
 
-// 생성된 행 타입
-export interface GeneratedRow {
-  id: string;
-  images: Array<{ 
-    id: number; 
-    src: string; 
-    isPinned: boolean; 
-    type: 'output' | 'reference';
-    imageId?: string;  // API에서 받은 image_id
-    fileKey?: string;  // Storage의 file_key
-  }>;
-  keyword: string;
-  boardId?: number;
-  createdAt: Date;
-  metadata?: {
-    inputImages: string[];
-    generationTime?: number;
-    generatedBy?: string; // 생성자 정보
-  };
+// ===== 프론트엔드 상태 관리 타입들 =====
+export interface GenerationState {
+  status: 'idle' | 'creating_session' | 'uploading' | 'generating' | 'completed' | 'error';
+  sessionId?: string;
+  recordId?: string;
+  progress: number;
+  currentStep?: string;
+  error?: string;
+  
+  // 생성 결과
+  generatedImages?: string[];
+  generatedStory?: string;
+  generatedKeywords?: string[];
+  recommendationImage?: string;
 }
 
-// 기존 BoardData 인터페이스 확장
-export interface BoardData {
-  id: number;
-  name: string;
+export interface DroppedFile {
+  id: string;
+  file: File;
+  previewUrl: string;
+}
+
+// 새로운 GeneratedRow 타입 (세션/레코드 기반)
+export interface GeneratedRow {
+  id: string; // record_id
+  sessionId: string;
   images: Array<{ 
     id: number; 
     src: string; 
@@ -123,10 +192,35 @@ export interface BoardData {
     imageId?: string;
     fileKey?: string;
   }>;
-  keyword: string;
+  keyword?: string;
+  story?: string;
+  generatedKeywords?: string[];
+  recommendationImage?: string;
+  boardId?: number;
+  createdAt: Date;
+  status: 'pending' | 'processing' | 'ready';
+  metadata?: {
+    inputImages: string[];
+    generationTime?: number;
+    generatedBy?: string;
+  };
 }
 
-// 에러 처리를 위한 타입들
+// ===== SSE 연결 관리 타입들 =====
+export interface SSEConnection {
+  eventSource: EventSource | null;
+  recordId: string | null;
+  isConnected: boolean;
+  reconnectAttempts: number;
+}
+
+export interface SSEConfig {
+  maxReconnectAttempts: number;
+  reconnectInterval: number;
+  timeout: number;
+}
+
+// ===== 에러 처리 타입들 =====
 export interface ApiError {
   success: false;
   error: string;
@@ -140,3 +234,18 @@ export interface ApiSuccess<T = unknown> {
 }
 
 export type ApiResponse<T = unknown> = ApiSuccess<T> | ApiError;
+
+// ===== 기존 BoardData 인터페이스 (호환성 유지) =====
+export interface BoardData {
+  id: number;
+  name: string;
+  images: Array<{ 
+    id: number; 
+    src: string; 
+    isPinned: boolean; 
+    type: 'output' | 'reference';
+    imageId?: string;
+    fileKey?: string;
+  }>;
+  keyword: string;
+}

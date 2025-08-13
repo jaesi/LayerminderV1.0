@@ -5,6 +5,16 @@ import { Pin, X } from 'lucide-react';
 import { dummyImages, keywords, boardsData } from '@/data/dummyData';
 import { GeneratedRow } from '@/types';
 
+interface RowSelectData {
+  rowIndex: number;
+  images: Array<{ id: number; src: string; isPinned: boolean }>;
+  keyword: string;
+  startImageIndex?: number;
+  story?: string; // AI 생성 스토리
+  generatedKeywords?: string[]; // AI 추출 키워드들  
+  recommendationImage?: string; // AI 추천 이미지
+}
+
 interface GalleryProps {
   onTogglePin: (imageId: number, boardName?: string, createNew?: boolean) => void;
   pinnedImages: number[];
@@ -14,6 +24,9 @@ interface GalleryProps {
     images: Array<{ id: number; src: string; isPinned: boolean }>;
     keyword: string;
     startImageIndex?: number;
+    story?: string;
+    generatedKeywords?: string[];
+    recommendationImage?: string;
   }) => void;
   selectedBoardId: number | null;
   generatedRows: GeneratedRow[];
@@ -238,13 +251,20 @@ export default function Gallery({
 
     const keywordItem = row.items.find(item => item.type === 'keyword');
     const keyword = keywordItem ? keywordItem.data : '';
-    
+
+    const generatedRow = generatedRows.find(genRow =>
+      genRow.images.some(img => allImages.some(allImg => allImg.src === img.src))
+    );
+
     onRowSelect({
-      rowIndex,
-      images: allImages,
-      keyword: keyword,
-      startImageIndex
-    });
+    rowIndex,
+    images: allImages,
+    keyword: keyword ?? '',
+    startImageIndex,
+    story: generatedRow?.story,
+    generatedKeywords: generatedRow?.generatedKeywords,
+    recommendationImage: generatedRow?.recommendationImage
+  });
   };
 
   const handleCloseModal = () => {
@@ -363,7 +383,7 @@ export default function Gallery({
                       key={`keyword-${keyword}-${itemIndex}`}
                       className="aspect-square flex items-center justify-center cursor-pointer transition-colors bg-transparent text-gray-800 border border-gray-300 hover:bg-gray-100"
                       draggable
-                      onDragStart={(e) => handleKeywordDragStart(e, keyword)}
+                      onDragStart={(e) => handleKeywordDragStart(e, keyword ?? '')}
                       onClick={() => handleRowClick(rowIndex)}
                     >
                       <span className="text-sm font-medium">{keyword}</span>
