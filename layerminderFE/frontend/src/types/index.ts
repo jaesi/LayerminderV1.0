@@ -235,6 +235,52 @@ export interface ApiSuccess<T = unknown> {
 
 export type ApiResponse<T = unknown> = ApiSuccess<T> | ApiError;
 
+// ===== Room 관련 타입들 =====
+export interface LayerRoom {
+  id: string;
+  name: string;
+  description: string;
+  is_public: boolean;
+  owner_id: string;
+  slug: string;
+  pin_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateRoomRequest {
+  name: string;
+  description: string;
+  is_public: boolean;
+}
+
+export interface UpdateRoomRequest {
+  name?: string;
+  description?: string;
+  is_public?: boolean;
+}
+
+export interface RoomImage {
+  room_image_id: string;
+  image_id: string;
+  url: string;
+  note: string;
+  seq: number;
+}
+
+export interface AddImageToRoomRequest {
+  image_id: string;
+  note: string;
+  seq: number;
+}
+
+export interface RoomListParams {
+  page?: number;
+  size?: number;
+  mine?: boolean;
+  q?: string;
+}
+
 // ===== 기존 BoardData 인터페이스 (호환성 유지) =====
 export interface BoardData {
   id: number;
