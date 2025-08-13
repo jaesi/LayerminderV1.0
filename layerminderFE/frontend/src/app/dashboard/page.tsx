@@ -10,6 +10,8 @@ import { boardsData } from '@/data/dummyData';
 import { GeneratedRow, HistorySession } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 import { getHistorySessions } from '@/lib/api';
+import { getRooms, deleteRoom } from '@/lib/api';
+import { LayerRoom } from '@/types';
 
 interface RowSelectData {
   rowIndex: number;
@@ -27,9 +29,13 @@ export default function Dashboard() {
   const [pinnedImages, setPinnedImages] = useState<number[]>([]);
   const [topPanelMode, setTopPanelMode] = useState<'brand' | 'generate' | 'details'>('brand');
   const [selectedRowData, setSelectedRowData] = useState<RowSelectData | null>(null);
-  const [selectedBoardId, setSelectedBoardId] = useState<number | null>(null);
+  const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'history' | 'room' | 'default'>('default');
   const [generatedRows, setGeneratedRows] = useState<GeneratedRow[]>([]);
   const [historySessions, setHistorySessions] = useState<HistorySession[]>([]);
+  const [rooms, setRooms] = useState<LayerRoom[]>([]);
+  const [roomsLoading, setRoomsLoading] = useState(false);  
 
   const [boardNames, setBoardNames] = useState([
     'Sofa', 'Lounge Chair', 'Coffee Table', 'Stool', 'Bench', 'Daybed',
@@ -37,23 +43,44 @@ export default function Dashboard() {
     'Desk', 'Storage', 'Cabinet', 'Bed Headboard', 'Mirror', 'Lighting', 'Artwork'
   ]);
 
+  // Room 목록 로드 함수
+  const loadRooms = async () => {
+    if (user) {
+      setRoomsLoading(true);
+      try {
+        const roomList = await getRooms({ mine: true });
+        if (roomList) {
+          setRooms(roomList);
+          console.log('✅ Rooms loaded:', roomList.length);
+        }
+      } catch (error) {
+        console.error('Failed to load rooms:', error);
+      } finally {
+        setRoomsLoading(false);
+      }
+    }
+  };
+
   // 히스토리 세션 로드
   useEffect(() => {
-    const loadHistorySessions = async () => {
+    const loadData = async () => {
       if (user) {
         try {
+          // 히스토리 세션 로드
           const sessions = await getHistorySessions();
           if (sessions) {
             setHistorySessions(sessions);
             console.log('✅ History sessions loaded:', sessions.length);
           }
+
+          // Room 목록 로드
+          await loadRooms();
         } catch (error) {
-          console.error('Failed to load history sessions:', error);
+          console.error('Failed to load history sessions or rooms:', error);
         }
       }
     };
-
-    loadHistorySessions();
+    loadData();
   }, [user]);
 
   // 로딩 중이거나 로그인되지 않은 경우 처리
@@ -98,12 +125,6 @@ export default function Dashboard() {
     } else {
       setPinnedImages(prev => [...prev, imageId]);
     }
-  };
-
-  // 현재 선택된 보드의 키워드 가져오기
-  const getBoardKeyword = (boardId: number): string => {
-    const board = boardsData.find(b => b.id === boardId);
-    return board?.keyword || 'Generated';
   };
 
   // 새로운 생성 결과 처리 (SSE를 통해 받은 완전한 결과)
@@ -154,10 +175,47 @@ export default function Dashboard() {
     setSelectedRowData(null);
   };
 
-  const handleBoardSelect = (boardId: number | null) => {
-    setSelectedBoardId(boardId);
+  const handleHistorySelect = (historyId: string | null) => {
+    setSelectedHistoryId(historyId);
+    setSelectedRoomId(null);
+    setViewMode(historyId ? 'history' : 'default');
     setTopPanelMode('brand');
     setSelectedRowData(null);
+  };
+
+  const handleRoomSelect = (roomId: string | null) => {
+    setSelectedRoomId(roomId);
+    setSelectedHistoryId(null);
+    setViewMode(roomId ? 'room' : 'default');
+    setTopPanelMode('brand');
+    setSelectedRowData(null);
+  };
+
+  const handleHistoryDelete = async (historyId: string) => {
+    if (selectedHistoryId === historyId) {
+      setSelectedHistoryId(null);
+      setViewMode('default');
+      setSelectedRowData(null);
+    }
+    
+    // 히스토리 목록 새로고침
+    if (user) {
+      const sessions = await getHistorySessions();
+      if (sessions) {
+        setHistorySessions(sessions);
+      }
+    }
+  };
+
+  const handleRoomDelete = async (roomId: string) => {
+    if (selectedRoomId === roomId) {
+      setSelectedRoomId(null);
+      setViewMode('default');
+      setSelectedRowData(null);
+    }
+    
+    // Room 목록 새로고침
+    await loadRooms();
   };
 
   return (
@@ -167,8 +225,16 @@ export default function Dashboard() {
       <div className="flex-1 flex pt-16 min-h-0">
         <Sidebar 
           isOpen={isSidebarOpen} 
-          onBoardSelect={handleBoardSelect}
-          selectedBoardId={selectedBoardId}
+          historySessions={historySessions}
+          rooms={rooms}
+          roomsLoading={roomsLoading}
+          selectedHistoryId={selectedHistoryId}
+          selectedRoomId={selectedRoomId}
+          onHistorySelect={handleHistorySelect}
+          onRoomSelect={handleRoomSelect}
+          onHistoryDelete={handleHistoryDelete}
+          onRoomDelete={handleRoomDelete}
+          onRoomsRefresh={loadRooms}
         />
         
         <div className={`flex-1 flex transition-all duration-300 min-h-0 ${
@@ -197,7 +263,9 @@ export default function Dashboard() {
                 pinnedImages={pinnedImages}
                 boardNames={boardNames}
                 onRowSelect={handleRowSelect}
-                selectedBoardId={selectedBoardId}
+                viewMode={viewMode}
+                selectedHistoryId={selectedHistoryId}
+                selectedRoomId={selectedRoomId}
                 generatedRows={generatedRows}
               />
             </div>

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Pin, X } from 'lucide-react';
 import { dummyImages, keywords, boardsData } from '@/data/dummyData';
-import { GeneratedRow } from '@/types';
+import { HistorySession, GeneratedRow } from '@/types';
 
 interface RowSelectData {
   rowIndex: number;
@@ -28,8 +28,11 @@ interface GalleryProps {
     generatedKeywords?: string[];
     recommendationImage?: string;
   }) => void;
-  selectedBoardId: number | null;
+  viewMode: 'history' | 'room' | 'default';
+  selectedHistoryId: string | null;
+  selectedRoomId: string | null;
   generatedRows: GeneratedRow[];
+  historySessions: HistorySession[];
 }
 
 export default function Gallery({ 
@@ -37,8 +40,11 @@ export default function Gallery({
   pinnedImages, 
   boardNames,
   onRowSelect,
-  selectedBoardId,
-  generatedRows
+  viewMode,
+  selectedHistoryId,
+  selectedRoomId,
+  generatedRows,
+  historySessions
 }: GalleryProps) {
   const [pinModalImageId, setPinModalImageId] = useState<number | null>(null);
   const [pinModalPosition, setPinModalPosition] = useState<{top: number, left: number, width: number, height: number} | null>(null);
@@ -64,19 +70,13 @@ export default function Gallery({
     return shuffled;
   };
 
-  // 보드별 필터링이 포함된 표시 로직
+  // 기존 getDisplayRows 함수를 찾아서 이렇게 교체
   const getDisplayRows = () => {
-    if (selectedBoardId) {
-      // 특정 보드 선택 시
-      const selectedBoard = boardsData.find(board => board.id === selectedBoardId);
+    if (viewMode === 'history' && selectedHistoryId) {
+      // 선택된 히스토리의 생성된 이미지들 표시
+      const historyGeneratedRows = generatedRows.filter(row => row.sessionId === selectedHistoryId);
       
-      // 해당 보드에서 생성된 행들 필터링
-      const boardGeneratedRows = generatedRows.filter(row => row.boardId === selectedBoardId);
-      
-      const result = [];
-      
-      // 1. 생성된 행들을 먼저 추가
-      boardGeneratedRows.forEach((genRow, index) => {
+      return historyGeneratedRows.map((genRow, index) => {
         const outputImages = genRow.images.filter(img => img.type === 'output');
         const referenceImage = genRow.images.find(img => img.type === 'reference');
         const keyword = genRow.keyword;
@@ -87,41 +87,26 @@ export default function Gallery({
           { type: 'keyword' as const, data: keyword }
         ];
 
-        const shuffledItems = isClient ? shuffleArray(items, (selectedBoardId * 1000) + index) : items;
+        const shuffledItems = isClient ? shuffleArray(items, index * 1000) : items;
         
-        result.push({
+        return {
           items: shuffledItems,
           allImages: [...outputImages, ...(referenceImage ? [referenceImage] : [])]
-        });
+        };
       });
-      
-      // 2. 기존 보드 데이터 추가 (있는 경우)
-      if (selectedBoard) {
-        const boardImages = selectedBoard.images.filter(img => img.type === 'output');
-        const boardReference = selectedBoard.images.find(img => img.type === 'reference');
-        const boardKeyword = selectedBoard.keyword;
-
-        const items = [
-          ...boardImages.map(img => ({ type: 'output' as const, data: img})),
-          ...(boardReference ? [{ type: 'reference' as const, data: boardReference }] : []),
-          { type: 'keyword' as const, data: boardKeyword }
-        ];
-
-        const shuffledItems = isClient ? shuffleArray(items, selectedBoardId * 1000) : items;
-        
-        result.push({
-          items: shuffledItems,
-          allImages: [...boardImages, ...(boardReference ? [boardReference] : [])]
-        });
-      }
-      
-      return result;
     }
 
-    // 보드 미선택 시: boardId가 없는 생성된 행들 + 기본 행들
+    if (viewMode === 'room' && selectedRoomId) {
+      // TODO: Room 이미지들 로드해서 표시
+      // 지금은 빈 배열 반환
+      console.log('Loading room images for:', selectedRoomId);
+      return [];
+    }
+
+    // 기본 모드: 보드 미선택 시 기존 로직
     const defaultRows = [0, 1, 2].map(createDefaultRow);
     const defaultGeneratedRows = generatedRows
-      .filter(row => !row.boardId) // 🔥 보드에 속하지 않은 것들만
+      .filter(row => !row.sessionId || !selectedHistoryId) // 특정 히스토리에 속하지 않은 것들
       .map((genRow, index) => {
         const outputImages = genRow.images.filter(img => img.type === 'output');
         const referenceImage = genRow.images.find(img => img.type === 'reference');
@@ -290,14 +275,28 @@ export default function Gallery({
     <div className="flex-1 h-full">
       <div className="px-4 pt-1 pb-4 space-y-2">
         {/* 현재 보드 정보 표시 */}
-        {selectedBoardId && (
+        {viewMode !== 'default' && (
           <div className="mb-4 p-2 bg-blue-50 rounded">
             <div className="text-sm text-blue-700">
-              현재 보드: <strong>{boardNames.find((_, index) => index + 1 === selectedBoardId) || `Board ${selectedBoardId}`}</strong>
-              {generatedRows.filter(row => row.boardId === selectedBoardId).length > 0 && (
-                <span className="ml-2 text-blue-500">
-                  (생성된 이미지 {generatedRows.filter(row => row.boardId === selectedBoardId).length}개 행)
-                </span>
+              {viewMode === 'history' && selectedHistoryId && (
+                <>
+                  현재 히스토리: <strong>
+                    {historySessions.find(s => s.session_id === selectedHistoryId)?.created_at 
+                      ? new Date(historySessions.find(s => s.session_id === selectedHistoryId)!.created_at).toLocaleDateString()
+                      : 'Unknown'}
+                  </strong>
+                  {generatedRows.filter(row => row.sessionId === selectedHistoryId).length > 0 && (
+                    <span className="ml-2 text-blue-500">
+                      (생성된 이미지 {generatedRows.filter(row => row.sessionId === selectedHistoryId).length}개 행)
+                    </span>
+                  )}
+                </>
+              )}
+              {viewMode === 'room' && selectedRoomId && (
+                <>
+                  현재 룸: <strong>Room {selectedRoomId}</strong>
+                  <span className="ml-2 text-blue-500">(이미지 로딩 중...)</span>
+                </>
               )}
             </div>
           </div>
