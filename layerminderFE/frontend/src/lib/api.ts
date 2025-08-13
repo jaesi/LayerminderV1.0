@@ -76,7 +76,7 @@ export interface ProcessedSSEEvent {
 /**
  * SSE 연결
  */
-export async function createSSEConnection(
+export async function createSSEConnectionWithAuth(
   recordId: string,
   onEvent: (event: ProcessedSSEEvent) => void,
   onError?: (error: Event) => void,
@@ -87,9 +87,9 @@ export async function createSSEConnection(
     
     // 인증이 필요한 경우 토큰을 쿼리 파라미터로 전달
     let url = `${API_BASE_URL}/api/v1/stream/${recordId}`;
-    if (token) {
-      url += `?token=${encodeURIComponent(token)}`;
-    }
+    // if (token) {
+    //   url += `?token=${encodeURIComponent(token)}`;
+    // }
     
     console.log('🔗 Creating SSE connection to:', url);
     
@@ -209,9 +209,19 @@ export async function createSSEConnection(
     });
 
     // 6. 에러 이벤트
-    eventSource.addEventListener('error', (event) => {
+    // 6. 에러 이벤트 처리 수정
+    eventSource.addEventListener('error', (event: MessageEvent) => {
       try {
-        const data: BackendErrorData = JSON.parse((event as MessageEvent).data);
+        // event.data가 비어있거나 undefined인 경우 처리
+        if (!event.data || event.data === 'undefined') {
+          onEvent({
+            type: 'error',
+            data: { error: 'Connection error occurred' }
+          });
+          return;
+        }
+        
+        const data: BackendErrorData = JSON.parse(event.data);
         console.error('❌ SSE error event (backend spec):', data);
         
         onEvent({
@@ -222,7 +232,7 @@ export async function createSSEConnection(
         console.error('Error parsing error event:', error);
         onEvent({
           type: 'error',
-          data: { error: 'Unknown error occurred' }
+          data: { error: 'Connection error occurred' }
         });
       }
     });

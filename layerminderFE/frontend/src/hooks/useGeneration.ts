@@ -4,13 +4,13 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import {
   GenerationState,
   DroppedFile,
-  SSEEventData,
-  GeneratedRow
+  GeneratedRow,
+  ProcessedSSEEvent
 } from '@/types';
 import {
   createHistorySession,
   startImageGeneration,
-  createSSEConnection,
+  createSSEConnectionWithAuth,
   uploadImageWithMetadata
 } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
@@ -38,6 +38,14 @@ export function useGeneration(options: UseGenerationOptions = {}) {
     keyword?: string;
   } | null>(null);
 
+  // 🔥 생성 결과를 실시간으로 저장하는 ref 추가
+  const generationResultRef = useRef<{
+    images?: string[];
+    story?: string;
+    keywords?: string[];
+    recommendation?: string;
+  }>({});
+
   // SSE 연결 정리
   const cleanup = useCallback(() => {
     if (sseRef.current) {
@@ -45,6 +53,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
       sseRef.current = null;
     }
     currentGenerationRef.current = null;
+    generationResultRef.current = {}; // 🔥 결과도 초기화
   }, []);
 
   // 컴포넌트 언마운트 시 정리
@@ -80,55 +89,64 @@ export function useGeneration(options: UseGenerationOptions = {}) {
     onError?.(error);
   }, [cleanup, updateState, onError]);
 
-  // SSE 이벤트 처리
-  const handleSSEEvent = useCallback((eventData: SSEEventData) => {
+  // 🔥 SSE 이벤트 처리 수정 - ref를 사용해서 실시간 데이터 저장
+  const handleSSEEvent = useCallback((eventData: ProcessedSSEEvent) => {
     const current = currentGenerationRef.current;
     if (!current) return;
 
     switch (eventData.type) {
       case 'images_generated':
-        console.log('📸 Images received:', eventData.data.image_urls.length);
+        console.log('📸 Images received:', eventData.data.image_urls?.length || 0);
+        // 🔥 ref에 이미지 저장
+        generationResultRef.current.images = eventData.data.image_urls || [];
         updateState({
-          generatedImages: eventData.data.image_urls,
+          generatedImages: eventData.data.image_urls || [],
           currentStep: 'Generating story...',
-          progress: 50
+          progress: 30
         });
         break;
 
       case 'story_generated':
         console.log('📝 Story received');
+        // 🔥 ref에 스토리 저장
+        generationResultRef.current.story = eventData.data.story;
         updateState({
           generatedStory: eventData.data.story,
           currentStep: 'Extracting keywords...',
-          progress: 75
+          progress: 60
         });
         break;
 
       case 'keywords_generated':
-        console.log('🏷️ Keywords received:', eventData.data.keywords.length);
+        console.log('🏷️ Keywords received:', eventData.data.keywords?.length || 0);
+        // 🔥 ref에 키워드 저장
+        generationResultRef.current.keywords = eventData.data.keywords || [];
         updateState({
-          generatedKeywords: eventData.data.keywords,
+          generatedKeywords: eventData.data.keywords || [],
           currentStep: 'Generating recommendations...',
-          progress: 90
+          progress: 80
         });
         break;
 
       case 'recommendation_ready':
         console.log('💡 Recommendation received');
+        // 🔥 ref에 추천 이미지 저장
+        generationResultRef.current.recommendation = eventData.data.recommendationUrl;
         updateState({
-          recommendationImage: eventData.data.url,
+          recommendationImage: eventData.data.recommendationUrl,
           status: 'completed',
           currentStep: 'Completed!',
           progress: 100
         });
 
-        // 최종 결과 생성
+        // 🔥 ref의 데이터를 사용해서 최종 결과 생성
+        const resultData = generationResultRef.current;
         const result: GeneratedRow = {
           id: current.recordId,
           sessionId: current.sessionId,
           images: [
-            // 생성된 이미지들
-            ...(state.generatedImages || []).map((url, index) => ({
+            // 🔥 ref에서 생성된 이미지들 가져오기
+            ...(resultData.images || []).map((url, index) => ({
               id: Date.now() + index + 1,
               src: url,
               isPinned: false,
@@ -144,9 +162,9 @@ export function useGeneration(options: UseGenerationOptions = {}) {
             }
           ],
           keyword: current.keyword,
-          story: eventData.data.url ? state.generatedStory : undefined,
-          generatedKeywords: state.generatedKeywords,
-          recommendationImage: eventData.data.url,
+          story: resultData.story,
+          generatedKeywords: resultData.keywords,
+          recommendationImage: resultData.recommendation,
           createdAt: new Date(),
           status: 'ready',
           metadata: {
@@ -156,10 +174,25 @@ export function useGeneration(options: UseGenerationOptions = {}) {
           }
         };
 
+        console.log('🎉 Final result created with images:', result.images.length);
+        console.log('🖼️ Generated images count:', resultData.images?.length || 0);
         onComplete?.(result);
         break;
+
+      case 'complete':
+        console.log('✅ All generation processes completed');
+        break;
+
+      case 'ping':
+        console.log('💓 SSE heartbeat received');
+        break;
+
+      case 'error':
+        console.error('❌ SSE error received:', eventData.data.error);
+        handleError(eventData.data.error || 'Unknown error occurred');
+        break;
     }
-  }, [state.generatedImages, state.generatedStory, state.generatedKeywords, updateState, onComplete, user?.id]);
+  }, [updateState, onComplete, user?.id, handleError]);
 
   // 메인 생성 함수
   const generate = useCallback(async (files: DroppedFile[], keywords: string[]) => {
@@ -216,7 +249,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
       console.log('✅ All files uploaded:', uploadResults.length);
 
       const imageKeys = uploadResults.map(result => result.fileKey);
-      const keyword = keywords.length > 0 ? keywords[0] : undefined;
+      const keyword = keywords.length > 0 ? keywords[0] : 'Undefined';
 
       updateState({
         status: 'generating',
@@ -250,7 +283,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
 
       // 4단계: SSE 연결 시작
       console.log('🔗 Starting SSE connection...');
-      sseRef.current = createSSEConnection(
+      const eventSource = await createSSEConnectionWithAuth(
         recordId,
         handleSSEEvent,
         (error) => {
@@ -262,6 +295,12 @@ export function useGeneration(options: UseGenerationOptions = {}) {
           cleanup();
         }
       );
+
+      if (eventSource) {
+        sseRef.current = eventSource;
+      } else {
+        throw new Error('Failed to establish SSE connection');
+      }
 
     } catch (error) {
       console.error('❌ Generation failed:', error);

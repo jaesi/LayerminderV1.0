@@ -30,27 +30,82 @@ export interface GenerateResponse {
 }
 
 // ===== SSE 이벤트 타입들 =====
+export interface BackendSSEImageEvent {
+  // image_id와 seq 배열
+  data: Array<{ image_id: string; seq: number }>;
+}
+
+export interface BackendSSEStoryEvent {
+  // story 필드를 포함한 객체
+  data: { story?: string };
+}
+
+export interface BackendSSEKeywordsEvent {
+  // keywords 필드 (string 또는 array)
+  data: { keywords?: string | string[] };
+}
+
+export interface BackendSSERecommendationEvent {
+  // reference_image_id
+  data: { reference_image_id?: string };
+}
+
+export interface BackendSSEErrorEvent {
+  data: { step: string; error: string };
+}
+
+export interface BackendSSEFailedEvent {
+  data: { reason: string; stage?: string };
+}
+
+export interface BackendSSEPingEvent {
+  data: { t: number };
+}
+
+export interface BackendSSEDoneEvent {
+  data: { ok: boolean };
+}
+
+export interface ProcessedSSEEvent {
+  type: 'images_generated' | 'story_generated' | 'keywords_generated' | 'recommendation_ready' | 'error' | 'complete' | 'ping';
+  data: {
+    image_urls?: string[];
+    story?: string;
+    keywords?: string[];
+    recommendationUrl?: string;
+    recommendationId?: string;
+    error?: string;
+    timestamp?: number;
+  };
+}
+
+// 프론트엔드에서 사용할 통합 이벤트 타입 (기존 유지하되 optional로 변경)
 export interface SSEImageEvent {
-  image_urls: string[];
+  image_urls?: string[];
 }
 
 export interface SSEStoryEvent {
-  story: string;
+  story?: string;
 }
 
 export interface SSEKeywordsEvent {
-  keywords: string[];
+  keywords?: string[];
 }
 
 export interface SSERecommendationEvent {
-  url: string;
+  url?: string;
+}
+
+export interface SSEErrorEvent {
+  error?: string;
 }
 
 export type SSEEventData = 
   | { type: 'images_generated'; data: SSEImageEvent }
   | { type: 'story_generated'; data: SSEStoryEvent }
   | { type: 'keywords_generated'; data: SSEKeywordsEvent }
-  | { type: 'recommendation_ready'; data: SSERecommendationEvent };
+  | { type: 'recommendation_ready'; data: SSERecommendationEvent }
+  | { type: 'error'; data: SSEErrorEvent };
 
 // ===== Room 관련 타입들 =====
 export interface LayerRoom {
