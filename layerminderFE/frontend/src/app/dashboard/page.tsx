@@ -12,6 +12,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { getHistorySessions } from '@/lib/api';
 import { getRooms, deleteRoom } from '@/lib/api';
 import { LayerRoom } from '@/types';
+import RoomModal from '@/components/dashboard/RoomModal';
+import SaveToRoomModal from '@/components/dashboard/SaveToRoomModal';
+import { createRoom, updateRoom, addImageToRoom } from '@/lib/api';
+import { CreateRoomRequest, UpdateRoomRequest } from '@/types';
 
 interface RowSelectData {
   rowIndex: number;
@@ -36,6 +40,12 @@ export default function Dashboard() {
   const [historySessions, setHistorySessions] = useState<HistorySession[]>([]);
   const [rooms, setRooms] = useState<LayerRoom[]>([]);
   const [roomsLoading, setRoomsLoading] = useState(false);  
+  const [roomModalOpen, setRoomModalOpen] = useState(false);
+  const [roomModalMode, setRoomModalMode] = useState<'create' | 'edit'>('create');
+  const [editingRoom, setEditingRoom] = useState<LayerRoom | undefined>(undefined);
+  const [saveToRoomModalOpen, setSaveToRoomModalOpen] = useState(false);
+  const [savingHistoryId, setSavingHistoryId] = useState<string>('');
+  const [modalLoading, setModalLoading] = useState(false);
 
   const [boardNames, setBoardNames] = useState([
     'Sofa', 'Lounge Chair', 'Coffee Table', 'Stool', 'Bench', 'Daybed',
@@ -218,6 +228,95 @@ export default function Dashboard() {
     await loadRooms();
   };
 
+  // Room 생성 핸들러
+  const handleCreateRoom = () => {
+    setRoomModalMode('create');
+    setEditingRoom(undefined);
+    setRoomModalOpen(true);
+  };
+
+  // Room 수정 핸들러
+  const handleEditRoom = (room: LayerRoom) => {
+    setRoomModalMode('edit');
+    setEditingRoom(room);
+    setRoomModalOpen(true);
+  };
+
+  // Room 공개/비공개 토글 핸들러
+  const handleToggleRoomVisibility = async (room: LayerRoom) => {
+    setModalLoading(true);
+    try {
+      const updateData: UpdateRoomRequest = {
+        is_public: !room.is_public
+      };
+      
+      const updatedRoom = await updateRoom(room.id, updateData);
+      if (updatedRoom) {
+        console.log('✅ Room visibility toggled:', updatedRoom.id);
+        await loadRooms(); // 목록 새로고침
+      }
+    } catch (error) {
+      console.error('Failed to toggle room visibility:', error);
+      alert('공개 설정 변경에 실패했습니다.');
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  // Room 모달 제출 핸들러
+  const handleRoomModalSubmit = async (data: CreateRoomRequest | UpdateRoomRequest) => {
+    setModalLoading(true);
+    try {
+      if (roomModalMode === 'create') {
+        const newRoom = await createRoom(data as CreateRoomRequest);
+        if (newRoom) {
+          console.log('✅ Room created:', newRoom.id);
+          await loadRooms(); // 목록 새로고침
+        }
+      } else if (roomModalMode === 'edit' && editingRoom) {
+        const updatedRoom = await updateRoom(editingRoom.id, data as UpdateRoomRequest);
+        if (updatedRoom) {
+          console.log('✅ Room updated:', updatedRoom.id);
+          await loadRooms(); // 목록 새로고침
+        }
+      }
+    } catch (error) {
+      console.error('Room operation failed:', error);
+      alert(roomModalMode === 'create' ? '룸 생성에 실패했습니다.' : '룸 수정에 실패했습니다.');
+      throw error; // 모달이 닫히지 않도록
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  // History를 Room으로 저장하는 핸들러
+  const handleSaveToRoom = (historyId: string) => {
+    setSavingHistoryId(historyId);
+    setSaveToRoomModalOpen(true);
+  };
+
+  // Room에 History 저장 실행
+  const handleSaveHistoryToRoom = async (roomId: string, historyId: string) => {
+    setModalLoading(true);
+    try {
+      // TODO: 히스토리의 이미지들을 가져와서 Room에 추가하는 로직
+      // 지금은 콘솔 로그만
+      console.log('Saving history to room:', { historyId, roomId });
+      
+      // 실제 구현 시에는 여기서 히스토리의 이미지들을 가져와서
+      // addImageToRoom API를 호출해야 함
+      
+      alert('히스토리가 룸에 저장되었습니다.');
+      await loadRooms(); // Room 목록 새로고침 (pin_count 업데이트)
+    } catch (error) {
+      console.error('Failed to save history to room:', error);
+      alert('룸에 저장하는데 실패했습니다.');
+      throw error;
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
   return (
     <div className="h-screen flex flex-col">
       <Navigation onToggleSidebar={handleToggleSidebar} />
@@ -235,6 +334,10 @@ export default function Dashboard() {
           onHistoryDelete={handleHistoryDelete}
           onRoomDelete={handleRoomDelete}
           onRoomsRefresh={loadRooms}
+          onCreateRoom={handleCreateRoom}
+          onEditRoom={handleEditRoom}
+          onToggleRoomVisibility={handleToggleRoomVisibility}
+          onSaveToRoom={handleSaveToRoom}
         />
         
         <div className={`flex-1 flex transition-all duration-300 min-h-0 ${
@@ -290,6 +393,30 @@ export default function Dashboard() {
           <div className="text-purple-400">✅ Real-time Updates</div>
         </div>
       )}
+
+      {/* Room 생성/수정 모달 */}
+      <RoomModal
+        isOpen={roomModalOpen}
+        mode={roomModalMode}
+        room={editingRoom}
+        onClose={() => setRoomModalOpen(false)}
+        onSubmit={handleRoomModalSubmit}
+        loading={modalLoading}
+      />
+
+      {/* History를 Room에 저장하는 모달 */}
+      <SaveToRoomModal
+        isOpen={saveToRoomModalOpen}
+        historyId={savingHistoryId}
+        rooms={rooms}
+        onClose={() => setSaveToRoomModalOpen(false)}
+        onSaveToRoom={handleSaveHistoryToRoom}
+        onCreateNewRoom={() => {
+          setSaveToRoomModalOpen(false);
+          handleCreateRoom();
+        }}
+        loading={modalLoading}
+      />
     </div>
   );
 }
