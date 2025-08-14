@@ -2,11 +2,12 @@
 
 import React, { useState, useRef } from 'react';
 import { X, Loader2, AlertCircle, CheckCircle, Zap, Clock } from 'lucide-react';
-import { DroppedFile, GeneratedRow } from '@/types';
+import { DroppedFile, GeneratedRow, GenerationContext } from '@/types';
 import { useGeneration } from '@/hooks/useGeneration';
 
 interface MainPanelProps {
   onGenerate: (result: GeneratedRow) => void;
+  context: GenerationContext;
 }
 
 // 간단한 파일 검증
@@ -25,17 +26,68 @@ function validateFile(file: File): { valid: boolean; error?: string } {
   return { valid: true };
 }
 
-export default function MainPanel({ onGenerate }: MainPanelProps) {
+// 원형 프로그레스 바 컴포넌트
+const CircularProgress = ({ progress, size = 200 }: { progress: number; size?: number }) => {
+  const radius = (size - 8) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (progress / 100) * circumference;
+
+  return (
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg
+        className="transform -rotate-90"
+        width={size}
+        height={size}
+      >
+        {/* Background circle */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#e5e7eb"
+          strokeWidth="4"
+          fill="transparent"
+        />
+        {/* Progress circle */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#3b82f6"
+          strokeWidth="4"
+          fill="transparent"
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+          className="transition-all duration-500 ease-out"
+        />
+      </svg>
+    </div>
+  );
+};
+
+export default function MainPanel({ onGenerate, context }: MainPanelProps) {
   const [droppedFiles, setDroppedFiles] = useState<DroppedFile[]>([]);
   const [droppedKeywords, setDroppedKeywords] = useState<string[]>([]);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // 컨텍스트별 안내 메시지
+  const getContextMessage = () => {
+    switch (context.mode) {
+      case 'room':
+        return '이 Room에 이미지가 추가됩니다';
+      case 'history':
+        return '기존 세션에 이미지가 추가됩니다';
+      default:
+        return '새로운 세션이 생성됩니다';
+    }
+  };
+
   // 새로운 생성 훅 사용
   const {
     status,
     progress,
-    currentStep,
     error: generationError,
     sessionId,
     recordId,
@@ -45,6 +97,7 @@ export default function MainPanel({ onGenerate }: MainPanelProps) {
     cancelGeneration,
     reset
   } = useGeneration({
+    context,
     onComplete: (result) => {
       console.log('✅ Generation completed:', result);
       onGenerate(result);
@@ -221,10 +274,7 @@ export default function MainPanel({ onGenerate }: MainPanelProps) {
       return (
         <>
           <Loader2 className="animate-spin" size={24} />
-          {status === 'creating_session' && 'Creating Session...'}
-          {status === 'uploading' && 'Uploading...'}
-          {status === 'generating' && 'Generating...'}
-          {!['creating_session', 'uploading', 'generating'].includes(status) && 'Processing...'}
+          Cancel
         </>
       );
     }
@@ -233,7 +283,7 @@ export default function MainPanel({ onGenerate }: MainPanelProps) {
       return (
         <>
           <CheckCircle size={24} />
-          &apos;Completed!&apos;
+          Completed!
         </>
       );
     }
@@ -241,7 +291,7 @@ export default function MainPanel({ onGenerate }: MainPanelProps) {
     return (
       <>
         <Zap size={24} />
-        &apos;Generate&apos;
+        Generate
       </>
     );
   };
@@ -257,6 +307,7 @@ export default function MainPanel({ onGenerate }: MainPanelProps) {
   return (
     <div className="h-full flex flex-col items-center justify-center p-8 pl-4">
       <div className="flex flex-col items-center gap-6">
+
         {/* 에러 메시지 */}
         {allErrors.length > 0 && (
           <div className="w-80 p-3 bg-red-50 border border-red-200 rounded">
@@ -278,64 +329,60 @@ export default function MainPanel({ onGenerate }: MainPanelProps) {
           </div>
         )}
 
-        {/* 생성 상태 정보 */}
+        {/* 컨텍스트 안내 */}
+        {context.mode !== 'new' && (
+          <div className="w-80 p-2 bg-blue-50 border border-blue-200 rounded mb-4">
+            <p className="text-sm text-blue-700 text-center">
+              🔗 {getContextMessage()}
+            </p>
+          </div>
+        )}
+
+        {/* 원형 프로그레스 바 (생성 중일 때만 표시) */}
         {isGenerating && (
-          <div className="w-80 p-3 bg-blue-50 border border-blue-200 rounded">
-            <div className="flex items-center gap-2 mb-2">
-              <Loader2 className="animate-spin text-blue-500" size={16} />
-              <span className="text-sm font-medium text-blue-700">
-                {currentStep || 'Processing...'}
-              </span>
+          <div className="relative">
+            <CircularProgress progress={progress} size={200} />
+            {/* 중앙 콘텐츠 */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <div className="w-3 h-3 bg-gray-800 rounded-full mb-2"></div>
+              <span className="text-xl italic font-light text-gray-700 mb-1">Generate</span>
+              <span className="text-lg font-medium text-blue-600">{progress}%</span>
+              {/* SSE 연결 상태 표시 */}
               {isSSEConnected && (
-                <div className="ml-auto flex items-center gap-1">
+                <div className="flex items-center gap-1 mt-2">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                   <span className="text-xs text-green-600">Live</span>
                 </div>
               )}
             </div>
-            
-            {/* 진행률 바 */}
-            <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
-              <div 
-                className="bg-blue-500 h-2 rounded-full transition-all duration-500"
-                style={{ width: `${progress}%` }}
-              ></div>
-            </div>
-            
-            <div className="flex justify-between text-xs text-blue-600">
-              <span>{progress}% 완료</span>
-              {sessionId && (
-                <span>Session: {sessionId.substring(0, 8)}...</span>
-              )}
-            </div>
           </div>
         )}
 
-        {/* Generate 버튼 */}
-        <div className="w-80 h-80 flex flex-col items-center justify-center">
-          <div className="w-3 h-3 bg-gray-800 rounded-full mb-2"></div>
-          <button 
-            className={`text-2xl italic font-light transition-colors flex items-center gap-2 ${
-              isGenerating 
-                ? 'text-blue-600 cursor-pointer hover:text-blue-800' 
-                : droppedFiles.length === 0
+        {/* Generate 버튼 (생성 중이 아닐 때만 표시) */}
+        {!isGenerating && (
+          <div className="w-80 h-80 flex flex-col items-center justify-center">
+            <div className="w-3 h-3 bg-gray-800 rounded-full mb-2"></div>
+            <button 
+              className={`text-2xl italic font-light transition-colors flex items-center gap-2 ${
+                droppedFiles.length === 0
                   ? 'text-gray-400 cursor-not-allowed' 
                   : 'text-gray-700 hover:text-gray-900'
-            }`}
-            onClick={handleGenerateClick}
-            disabled={droppedFiles.length === 0 && !isGenerating}
-          >
-            {getButtonContent()}
-          </button>
-          
-          {/* 예상 소요 시간 */}
-          {!isGenerating && droppedFiles.length > 0 && (
-            <div className="flex items-center gap-1 mt-2 text-xs text-gray-500">
-              <Clock size={12} />
-              <span>예상 소요시간: 20-30초</span>
-            </div>
-          )}
-        </div>
+              }`}
+              onClick={handleGenerateClick}
+              disabled={droppedFiles.length === 0}
+            >
+              {getButtonContent()}
+            </button>
+            
+            {/* 예상 소요 시간 */}
+            {droppedFiles.length > 0 && (
+              <div className="flex items-center gap-1 mt-2 text-xs text-gray-500">
+                <Clock size={12} />
+                <span>예상 소요시간: 20-30초</span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Drop 영역 */}
         <div

@@ -10,7 +10,7 @@ import {
   RoomListParams,
   UpdateRoomRequest,
   AddImageToRoomRequest,
-  RoomImage
+  RoomImage,
 } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
@@ -27,7 +27,7 @@ async function getAuthToken(): Promise<string | null> {
   }
 }
 
-// ===== SE 이벤트 타입들 =====
+// ===== SSE 이벤트 타입들 =====
 export interface BackendImageData {
   image_id: string;
   seq: number;
@@ -428,7 +428,7 @@ export async function deleteHistorySession(sessionId: string): Promise<boolean> 
 export async function startImageGeneration(
   sessionId: string,
   imageKeys: string[],
-  keyword?: string
+  keyword?: string,
 ): Promise<GenerateResponse | null> {
   try {
     const token = await getAuthToken();
@@ -689,7 +689,7 @@ export async function getRoomImages(roomId: string): Promise<RoomImage[] | null>
       throw new Error('Authentication token required');
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/v1/layer-rooms-image/${roomId}/image`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/layer-rooms-image/${roomId}/images`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
