@@ -214,7 +214,6 @@ export async function createSSEConnectionWithAuth(
       }
     });
 
-    // 6. 에러 이벤트
     // 6. 에러 이벤트 처리 수정
     eventSource.addEventListener('error', (event: MessageEvent) => {
       try {
@@ -318,9 +317,58 @@ export async function createSSEConnectionWithAuth(
 // ===== API 함수들 =====
 
 /**
+ * 사용자의 단일 히스토리 세션 가져오기 (없으면 생성)
+ */
+export async function getUserHistorySession(): Promise<CreateSessionResponse | null> {
+  try {
+    const token = await getAuthToken();
+    if (!token) {
+      throw new Error('Authentication token required');
+    }
+
+    console.log('🔍 Getting user history session...');
+
+    // 1. 먼저 기존 세션 조회
+    const response = await fetch(`${API_BASE_URL}/api/v1/history_sessions`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const sessions = await response.json() as HistorySession[];
+    
+    // 2. 기존 세션이 있으면 첫 번째 것 반환 (가장 최근 것)
+    if (sessions && sessions.length > 0) {
+      const existingSession = sessions[0];
+      console.log('✅ Found existing history session:', existingSession.session_id);
+      return {
+        session_id: existingSession.session_id,
+        user_id: existingSession.user_id,
+        created_at: existingSession.created_at,
+        updated_at: existingSession.updated_at
+      };
+    }
+
+    // 3. 기존 세션이 없으면 새로 생성
+    console.log('🚀 Creating new history session...');
+    return await createHistorySession();
+
+  } catch (error) {
+    console.error('Get user history session error:', error);
+    return null;
+  }
+}
+
+/**
  * 새로운 히스토리 세션 생성
  */
-export async function createHistorySession(): Promise<CreateSessionResponse | null> {
+async function createHistorySession(): Promise<CreateSessionResponse | null> {
   try {
     const token = await getAuthToken();
     if (!token) {
