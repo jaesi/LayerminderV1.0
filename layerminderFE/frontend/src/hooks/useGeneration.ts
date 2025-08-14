@@ -9,7 +9,7 @@ import {
   GenerationContext
 } from '@/types';
 import {
-  createHistorySession,
+  getUserHistorySession,
   startImageGeneration,
   createSSEConnectionWithAuth,
   uploadImageWithMetadata,
@@ -182,14 +182,14 @@ export function useGeneration(options: UseGenerationOptions = {}) {
         console.log('🖼️ Generated images count:', resultData.images?.length || 0);
 
         // Room 모드인 경우 자동으로 Room에 이미지 추가
-        const roomId = current.context!.targetId;
         if (current.context?.mode === 'room' && current.context.targetId) {
+          const roomId = current.context.targetId;
           console.log('🏠 Auto-adding images to room...');
           
           // 생성된 이미지들을 Room에 추가
           const addPromises = (resultData.images || []).map(async (imageUrl, index) => {
             const imageId = `generated_${current.recordId}_${index}`;
-            return addImageToRoom(roomId!, {
+            return addImageToRoom(roomId, {
               image_id: imageId,
               note: `Generated: ${current.keyword}`,
               seq: index
@@ -223,7 +223,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
     }
   }, [updateState, onComplete, user?.id, handleError]);
 
-  // 메인 생성 함수
+  // 🔥 메인 생성 함수 - 단일 세션 사용
   const generate = useCallback(async (files: DroppedFile[], keywords: string[]) => {
     if (!user && typeof window !== 'undefined' && !window.location.search.includes('guest=true')) {
       handleError('Authentication required');
@@ -240,33 +240,36 @@ export function useGeneration(options: UseGenerationOptions = {}) {
 
       let sessionId: string;
 
-      // 컨텍스트에 따른 세션 ID 결정
-      if (context?.mode === 'history' && context.targetId) {
-        // 기존 히스토리 세션 재사용
-        sessionId = context.targetId;
-        console.log('🔄 Using existing history session:', sessionId);
-      } else if (context?.mode === 'room' && context.targetId) {
-        // Room ID를 세션 ID로 사용
-        sessionId = context.targetId;
-        console.log('🏠 Using room ID as session:', sessionId);
+      // 🔥 NEW: 컨텍스트에 따른 세션 ID 결정
+      if (context?.mode === 'room' && context.targetId) {
+        // Room 모드: 사용자의 단일 히스토리 세션 사용 (Room ID는 추가 용도로만)
+        console.log('🏠 Room mode: Getting user history session...');
+        const sessionResult = await getUserHistorySession();
+        
+        if (!sessionResult) {
+          throw new Error('Failed to get user history session for room generation');
+        }
+        
+        sessionId = sessionResult.session_id;
+        console.log('🔄 Using user history session for room:', sessionId);
       } else {
-        // 새 세션 생성
+        // 일반 모드: 사용자의 단일 히스토리 세션 사용
         updateState({
           status: 'creating_session',
           progress: 10,
-          currentStep: 'Creating session...',
+          currentStep: 'Getting session...',
           error: undefined
         });
 
-        console.log('🚀 Creating new session...');
-        const sessionResult = await createHistorySession();
+        console.log('🚀 Getting user history session...');
+        const sessionResult = await getUserHistorySession();
       
         if (!sessionResult) {
-          throw new Error('Failed to create history session');
+          throw new Error('Failed to get user history session');
         }
 
         sessionId = sessionResult.session_id;
-        console.log('✅ New session created:', sessionId);
+        console.log('✅ User history session ready:', sessionId);
       }
 
       updateState({
@@ -349,7 +352,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
       console.error('❌ Generation failed:', error);
       handleError(error instanceof Error ? error.message : 'Generation failed');
     }
-  }, [user, cleanup, updateState, handleError, handleSSEEvent]);
+  }, [user, cleanup, updateState, handleError, handleSSEEvent, context]);
 
   // 생성 취소
   const cancelGeneration = useCallback(() => {
