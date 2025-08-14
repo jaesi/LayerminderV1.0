@@ -1,19 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Pin, X } from 'lucide-react';
-import { dummyImages, keywords, boardsData } from '@/data/dummyData';
-import { GeneratedRow } from '@/types';
-
-interface RowSelectData {
-  rowIndex: number;
-  images: Array<{ id: number; src: string; isPinned: boolean }>;
-  keyword: string;
-  startImageIndex?: number;
-  story?: string; // AI 생성 스토리
-  generatedKeywords?: string[]; // AI 추출 키워드들  
-  recommendationImage?: string; // AI 추천 이미지
-}
+import { Pin, X, Trash2 } from 'lucide-react';
+import { dummyImages, keywords } from '@/data/dummyData';
+import { HistorySession, GeneratedRow, RoomImage, LayerRoom } from '@/types';
 
 interface GalleryProps {
   onTogglePin: (imageId: number, boardName?: string, createNew?: boolean) => void;
@@ -21,15 +11,30 @@ interface GalleryProps {
   boardNames: string[];
   onRowSelect: (rowData: {
     rowIndex: number;
-    images: Array<{ id: number; src: string; isPinned: boolean }>;
+    images: Array<{ 
+      id: number; 
+      src: string; 
+      isPinned: boolean;
+      type?: 'output' | 'reference';
+      imageId?: string;
+      fileKey?: string;
+      roomImageId?: string; // 추가
+    }>;
     keyword: string;
     startImageIndex?: number;
     story?: string;
     generatedKeywords?: string[];
     recommendationImage?: string;
   }) => void;
-  selectedBoardId: number | null;
+  viewMode: 'history' | 'room' | 'default';
+  selectedHistoryId: string | null;
+  selectedRoomId: string | null;
   generatedRows: GeneratedRow[];
+  historySessions: HistorySession[];
+  roomImages: RoomImage[];
+  roomImagesLoading: boolean;
+  rooms: LayerRoom[];
+  onRemoveImageFromRoom?: (roomImageId: string, imageId: string) => Promise<void>;
 }
 
 export default function Gallery({ 
@@ -37,8 +42,15 @@ export default function Gallery({
   pinnedImages, 
   boardNames,
   onRowSelect,
-  selectedBoardId,
-  generatedRows
+  viewMode,
+  selectedHistoryId,
+  selectedRoomId,
+  generatedRows,
+  historySessions,
+  roomImages,
+  roomImagesLoading,
+  rooms,
+  onRemoveImageFromRoom
 }: GalleryProps) {
   const [pinModalImageId, setPinModalImageId] = useState<number | null>(null);
   const [pinModalPosition, setPinModalPosition] = useState<{top: number, left: number, width: number, height: number} | null>(null);
@@ -64,19 +76,12 @@ export default function Gallery({
     return shuffled;
   };
 
-  // 보드별 필터링이 포함된 표시 로직
   const getDisplayRows = () => {
-    if (selectedBoardId) {
-      // 특정 보드 선택 시
-      const selectedBoard = boardsData.find(board => board.id === selectedBoardId);
+    if (viewMode === 'history' && selectedHistoryId) {
+      // 선택된 히스토리의 생성된 이미지들 표시
+      const historyGeneratedRows = generatedRows.filter(row => row.sessionId === selectedHistoryId);
       
-      // 해당 보드에서 생성된 행들 필터링
-      const boardGeneratedRows = generatedRows.filter(row => row.boardId === selectedBoardId);
-      
-      const result = [];
-      
-      // 1. 생성된 행들을 먼저 추가
-      boardGeneratedRows.forEach((genRow, index) => {
+      return historyGeneratedRows.map((genRow, index) => {
         const outputImages = genRow.images.filter(img => img.type === 'output');
         const referenceImage = genRow.images.find(img => img.type === 'reference');
         const keyword = genRow.keyword;
@@ -87,41 +92,67 @@ export default function Gallery({
           { type: 'keyword' as const, data: keyword }
         ];
 
-        const shuffledItems = isClient ? shuffleArray(items, (selectedBoardId * 1000) + index) : items;
+        const shuffledItems = isClient ? shuffleArray(items, index * 1000) : items;
         
-        result.push({
+        return {
           items: shuffledItems,
           allImages: [...outputImages, ...(referenceImage ? [referenceImage] : [])]
-        });
+        };
       });
+    }
+
+    if (viewMode === 'room' && selectedRoomId) {
+      // Room 이미지들을 Gallery 형식으로 변환
+      if (roomImagesLoading) {
+        return []; // 로딩 중에는 빈 배열
+      }
       
-      // 2. 기존 보드 데이터 추가 (있는 경우)
-      if (selectedBoard) {
-        const boardImages = selectedBoard.images.filter(img => img.type === 'output');
-        const boardReference = selectedBoard.images.find(img => img.type === 'reference');
-        const boardKeyword = selectedBoard.keyword;
-
-        const items = [
-          ...boardImages.map(img => ({ type: 'output' as const, data: img})),
-          ...(boardReference ? [{ type: 'reference' as const, data: boardReference }] : []),
-          { type: 'keyword' as const, data: boardKeyword }
-        ];
-
-        const shuffledItems = isClient ? shuffleArray(items, selectedBoardId * 1000) : items;
+      if (roomImages.length === 0) {
+        return []; // 이미지가 없으면 빈 배열
+      }
+      
+      // Room 이미지들을 6개씩 묶어서 행으로 만들기
+      const rows = [];
+      const imagesPerRow = 6;
+      
+      for (let i = 0; i < roomImages.length; i += imagesPerRow - 1) { // -1은 키워드 공간 확보
+        const rowImages = roomImages.slice(i, i + imagesPerRow - 1);
         
-        result.push({
-          items: shuffledItems,
-          allImages: [...boardImages, ...(boardReference ? [boardReference] : [])]
+        const items = [
+          ...rowImages.map((roomImg, index) => ({ 
+            type: 'output' as const, 
+            data: {
+              id: Date.now() + i + index,
+              src: roomImg.url,
+              isPinned: false,
+              type: 'output' as const,
+              imageId: roomImg.image_id,
+              roomImageId: roomImg.room_image_id // Room에서 삭제할 때 필요
+            }
+          })),
+          { type: 'keyword' as const, data: 'Room Images' }
+        ];
+        
+        rows.push({
+          items,
+          allImages: rowImages.map((roomImg, index) => ({
+            id: Date.now() + i + index,
+            src: roomImg.url,
+            isPinned: false,
+            type: 'output' as const,
+            imageId: roomImg.image_id,
+            roomImageId: roomImg.room_image_id
+          }))
         });
       }
       
-      return result;
+      return rows;
     }
 
-    // 보드 미선택 시: boardId가 없는 생성된 행들 + 기본 행들
+    // 기본 모드: 보드 미선택 시 기존 로직
     const defaultRows = [0, 1, 2].map(createDefaultRow);
     const defaultGeneratedRows = generatedRows
-      .filter(row => !row.boardId) // 🔥 보드에 속하지 않은 것들만
+      .filter(row => !row.sessionId || !selectedHistoryId) // 특정 히스토리에 속하지 않은 것들
       .map((genRow, index) => {
         const outputImages = genRow.images.filter(img => img.type === 'output');
         const referenceImage = genRow.images.find(img => img.type === 'reference');
@@ -290,14 +321,36 @@ export default function Gallery({
     <div className="flex-1 h-full">
       <div className="px-4 pt-1 pb-4 space-y-2">
         {/* 현재 보드 정보 표시 */}
-        {selectedBoardId && (
+        {viewMode !== 'default' && (
           <div className="mb-4 p-2 bg-blue-50 rounded">
             <div className="text-sm text-blue-700">
-              현재 보드: <strong>{boardNames.find((_, index) => index + 1 === selectedBoardId) || `Board ${selectedBoardId}`}</strong>
-              {generatedRows.filter(row => row.boardId === selectedBoardId).length > 0 && (
-                <span className="ml-2 text-blue-500">
-                  (생성된 이미지 {generatedRows.filter(row => row.boardId === selectedBoardId).length}개 행)
-                </span>
+              {viewMode === 'history' && selectedHistoryId && (
+                <>
+                  현재 히스토리: <strong>
+                    {historySessions.find(s => s.session_id === selectedHistoryId)?.created_at 
+                      ? new Date(historySessions.find(s => s.session_id === selectedHistoryId)!.created_at).toLocaleDateString()
+                      : 'Unknown'}
+                  </strong>
+                  {generatedRows.filter(row => row.sessionId === selectedHistoryId).length > 0 && (
+                    <span className="ml-2 text-blue-500">
+                      (생성된 이미지 {generatedRows.filter(row => row.sessionId === selectedHistoryId).length}개 행)
+                    </span>
+                  )}
+                </>
+              )}
+              {viewMode === 'room' && selectedRoomId && (
+                <>
+                  현재 룸: <strong>
+                    {rooms.find(r => r.id === selectedRoomId)?.name || 'Unknown Room'}
+                  </strong>
+                  {roomImagesLoading ? (
+                    <span className="ml-2 text-blue-500">(이미지 로딩 중...)</span>
+                  ) : (
+                    <span className="ml-2 text-blue-500">
+                      (이미지 {roomImages.length}개)
+                    </span>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -330,9 +383,24 @@ export default function Gallery({
                         <div className="absolute top-1 left-1 w-3 h-3 bg-blue-500 rounded-full" title="AI Generated"></div>
                       )}
                       
+                      {/* Room 모드에서 삭제 버튼 추가 */}
+                      {viewMode === 'room' && onRemoveImageFromRoom && 'roomImageId' in image && image.roomImageId && (
+                        <button
+                          className="absolute top-1 left-1 p-1 bg-red-500 text-white shadow-md opacity-0 group-hover:opacity-100 transition-opacity rounded"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRemoveImageFromRoom(image.roomImageId!, image.imageId || '');
+                          }}
+                          title="룸에서 제거"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      )}
+                      
                       <button
                         className="absolute top-1 right-1 p-1 bg-white shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
                         onClick={(e) => handlePinClick(e, image.id)}
+                        title={viewMode === 'room' ? '다른 룸에 복사' : '룸에 저장'}
                       >
                         <Pin
                           size={12}

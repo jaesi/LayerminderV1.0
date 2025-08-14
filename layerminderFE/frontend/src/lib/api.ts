@@ -4,7 +4,13 @@ import {
   GenerateRequest,
   GenerateResponse,
   ImageMetadataResponse,
-  ImageMetadataRequest
+  ImageMetadataRequest,
+  CreateRoomRequest,
+  LayerRoom,
+  RoomListParams,
+  UpdateRoomRequest,
+  AddImageToRoomRequest,
+  RoomImage,
 } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
@@ -21,7 +27,7 @@ async function getAuthToken(): Promise<string | null> {
   }
 }
 
-// ===== SE 이벤트 타입들 =====
+// ===== SSE 이벤트 타입들 =====
 export interface BackendImageData {
   image_id: string;
   seq: number;
@@ -422,7 +428,7 @@ export async function deleteHistorySession(sessionId: string): Promise<boolean> 
 export async function startImageGeneration(
   sessionId: string,
   imageKeys: string[],
-  keyword?: string
+  keyword?: string,
 ): Promise<GenerateResponse | null> {
   try {
     const token = await getAuthToken();
@@ -464,6 +470,278 @@ export async function startImageGeneration(
   } catch (error) {
     console.error('Start image generation error:', error);
     return null;
+  }
+}
+
+// ===== Room 관련 API 함수들 =====
+
+/**
+ * Room 생성
+ */
+export async function createRoom(roomData: CreateRoomRequest): Promise<LayerRoom | null> {
+  try {
+    const token = await getAuthToken();
+    if (!token) {
+      throw new Error('Authentication token required');
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/layer-rooms`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(roomData),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP error! status: ${response.status}, details: ${errorText}`);
+    }
+
+    const data = await response.json() as LayerRoom;
+    console.log('✅ Room created:', data.id);
+    return data;
+  } catch (error) {
+    console.error('Create room error:', error);
+    return null;
+  }
+}
+
+/**
+ * Room 목록 조회
+ */
+export async function getRooms(params?: RoomListParams): Promise<LayerRoom[] | null> {
+  try {
+    const token = await getAuthToken();
+    if (!token) {
+      throw new Error('Authentication token required');
+    }
+
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.append('page', params.page.toString());
+    if (params?.size) searchParams.append('size', params.size.toString());
+    if (params?.mine !== undefined) searchParams.append('mine', params.mine.toString());
+    if (params?.q) searchParams.append('q', params.q);
+
+    const url = `${API_BASE_URL}/api/v1/layer-rooms${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const rooms = await response.json() as LayerRoom[];
+    console.log('✅ Rooms loaded:', rooms.length);
+    return rooms;
+  } catch (error) {
+    console.error('Get rooms error:', error);
+    return null;
+  }
+}
+
+/**
+ * Room 정보 조회
+ */
+export async function getRoom(roomId: string): Promise<LayerRoom | null> {
+  try {
+    const token = await getAuthToken();
+    if (!token) {
+      throw new Error('Authentication token required');
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/layer-rooms/${roomId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const room = await response.json() as LayerRoom;
+    console.log('✅ Room loaded:', room.id);
+    return room;
+  } catch (error) {
+    console.error('Get room error:', error);
+    return null;
+  }
+}
+
+/**
+ * Room 업데이트
+ */
+export async function updateRoom(roomId: string, updateData: UpdateRoomRequest): Promise<LayerRoom | null> {
+  try {
+    const token = await getAuthToken();
+    if (!token) {
+      throw new Error('Authentication token required');
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/layer-rooms/${roomId}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updateData),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP error! status: ${response.status}, details: ${errorText}`);
+    }
+
+    const room = await response.json() as LayerRoom;
+    console.log('✅ Room updated:', room.id);
+    return room;
+  } catch (error) {
+    console.error('Update room error:', error);
+    return null;
+  }
+}
+
+/**
+ * Room 삭제
+ */
+export async function deleteRoom(roomId: string): Promise<boolean> {
+  try {
+    const token = await getAuthToken();
+    if (!token) {
+      throw new Error('Authentication token required');
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/layer-rooms/${roomId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (response.status === 204) {
+      console.log('✅ Room deleted:', roomId);
+      return true;
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Delete room failed:', errorText);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Delete room error:', error);
+    return false;
+  }
+}
+
+/**
+ * Room에 이미지 추가
+ */
+export async function addImageToRoom(roomId: string, imageData: AddImageToRoomRequest): Promise<RoomImage | null> {
+  try {
+    const token = await getAuthToken();
+    if (!token) {
+      throw new Error('Authentication token required');
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/layer-rooms-image/${roomId}/images`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(imageData),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP error! status: ${response.status}, details: ${errorText}`);
+    }
+
+    const roomImage = await response.json() as RoomImage;
+    console.log('✅ Image added to room:', roomImage.room_image_id);
+    return roomImage;
+  } catch (error) {
+    console.error('Add image to room error:', error);
+    return null;
+  }
+}
+
+/**
+ * Room 이미지 목록 조회
+ */
+export async function getRoomImages(roomId: string): Promise<RoomImage[] | null> {
+  try {
+    const token = await getAuthToken();
+    if (!token) {
+      throw new Error('Authentication token required');
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/layer-rooms-image/${roomId}/images`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const images = await response.json() as RoomImage[];
+    console.log('✅ Room images loaded:', images.length);
+    return images;
+  } catch (error) {
+    console.error('Get room images error:', error);
+    return null;
+  }
+}
+
+/**
+ * Room에서 이미지 제거
+ */
+export async function removeImageFromRoom(roomId: string, imageId: string): Promise<boolean> {
+  try {
+    const token = await getAuthToken();
+    if (!token) {
+      throw new Error('Authentication token required');
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/layer-rooms-image/${roomId}/images/${imageId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (response.status === 204) {
+      console.log('✅ Image removed from room:', imageId);
+      return true;
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Remove image from room failed:', errorText);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Remove image from room error:', error);
+    return false;
   }
 }
 

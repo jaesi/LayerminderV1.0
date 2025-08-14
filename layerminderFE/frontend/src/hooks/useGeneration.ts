@@ -5,17 +5,20 @@ import {
   GenerationState,
   DroppedFile,
   GeneratedRow,
-  ProcessedSSEEvent
+  ProcessedSSEEvent,
+  GenerationContext
 } from '@/types';
 import {
   createHistorySession,
   startImageGeneration,
   createSSEConnectionWithAuth,
-  uploadImageWithMetadata
+  uploadImageWithMetadata,
+  addImageToRoom
 } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 
 interface UseGenerationOptions {
+  context?: GenerationContext; 
   onComplete?: (result: GeneratedRow) => void;
   onError?: (error: string) => void;
   onProgress?: (step: string, progress: number) => void;
@@ -23,7 +26,7 @@ interface UseGenerationOptions {
 
 export function useGeneration(options: UseGenerationOptions = {}) {
   const { user } = useAuth();
-  const { onComplete, onError, onProgress } = options;
+  const { onComplete, onError, onProgress, context } = options;
 
   const [state, setState] = useState<GenerationState>({
     status: 'idle',
@@ -36,6 +39,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
     recordId: string;
     inputImages: string[];
     keyword?: string;
+    context?: GenerationContext;
   } | null>(null);
 
   // 🔥 생성 결과를 실시간으로 저장하는 ref 추가
@@ -170,12 +174,37 @@ export function useGeneration(options: UseGenerationOptions = {}) {
           metadata: {
             inputImages: current.inputImages,
             generationTime: Date.now(),
-            generatedBy: user?.id || 'guest',
+            generatedBy: user?.id || 'guest'
           }
         };
 
         console.log('🎉 Final result created with images:', result.images.length);
         console.log('🖼️ Generated images count:', resultData.images?.length || 0);
+
+        // Room 모드인 경우 자동으로 Room에 이미지 추가
+        const roomId = current.context!.targetId;
+        if (current.context?.mode === 'room' && current.context.targetId) {
+          console.log('🏠 Auto-adding images to room...');
+          
+          // 생성된 이미지들을 Room에 추가
+          const addPromises = (resultData.images || []).map(async (imageUrl, index) => {
+            const imageId = `generated_${current.recordId}_${index}`;
+            return addImageToRoom(roomId!, {
+              image_id: imageId,
+              note: `Generated: ${current.keyword}`,
+              seq: index
+            });
+          });
+          
+          Promise.all(addPromises)
+            .then(() => {
+              console.log('✅ Images automatically added to room');
+            })
+            .catch(err => {
+              console.error('❌ Failed to add images to room:', err);
+            });
+        }
+
         onComplete?.(result);
         break;
 
@@ -208,24 +237,37 @@ export function useGeneration(options: UseGenerationOptions = {}) {
 
     try {
       cleanup();
-      
-      updateState({
-        status: 'creating_session',
-        progress: 10,
-        currentStep: 'Creating session...',
-        error: undefined
-      });
 
-      // 1단계: 세션 생성
-      console.log('🚀 Starting generation process...');
-      const sessionResult = await createHistorySession();
+      let sessionId: string;
+
+      // 컨텍스트에 따른 세션 ID 결정
+      if (context?.mode === 'history' && context.targetId) {
+        // 기존 히스토리 세션 재사용
+        sessionId = context.targetId;
+        console.log('🔄 Using existing history session:', sessionId);
+      } else if (context?.mode === 'room' && context.targetId) {
+        // Room ID를 세션 ID로 사용
+        sessionId = context.targetId;
+        console.log('🏠 Using room ID as session:', sessionId);
+      } else {
+        // 새 세션 생성
+        updateState({
+          status: 'creating_session',
+          progress: 10,
+          currentStep: 'Creating session...',
+          error: undefined
+        });
+
+        console.log('🚀 Creating new session...');
+        const sessionResult = await createHistorySession();
       
-      if (!sessionResult) {
-        throw new Error('Failed to create history session');
+        if (!sessionResult) {
+          throw new Error('Failed to create history session');
+        }
+
+        sessionId = sessionResult.session_id;
+        console.log('✅ New session created:', sessionId);
       }
-
-      const sessionId = sessionResult.session_id;
-      console.log('✅ Session created:', sessionId);
 
       updateState({
         sessionId,
@@ -272,7 +314,8 @@ export function useGeneration(options: UseGenerationOptions = {}) {
         sessionId,
         recordId,
         inputImages: uploadResults.map(r => r.publicUrl),
-        keyword
+        keyword,
+        context
       };
 
       updateState({

@@ -27,6 +27,9 @@ export default function TopPanel({
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<'images' | 'story' | 'keywords' | 'recommendation'>('images');
 
+  // 컨테이너 높이 계산 (패딩 제외)
+  const containerHeight = 'calc(320px - 2rem)'; // h-80 - pt-4 - pb-1
+
   // selectedRowData가 변경되면 currentImageIndex 업데이트
   React.useEffect(() => {
     if (selectedRowData?.startImageIndex !== undefined) {
@@ -36,7 +39,7 @@ export default function TopPanel({
 
   // 브랜드 모드 렌더링
   const renderBrandMode = () => (
-    <div className="grid grid-cols-6 gap-2">
+    <div className="grid grid-cols-6 gap-2" style={{ height: containerHeight }}>
       {/* 브랜드 이미지 */}
       <div className="col-span-2 flex items-start justify-center">
         <img 
@@ -46,29 +49,32 @@ export default function TopPanel({
         />
       </div>
 
-      <div className="col-span-4 flex flex-col justify-start pl-4">
-        <h2 className="text-lg font-light text-gray-600 leading-relaxed mb-4">
-          &quot;Redefining Heritage<br />
-          for a Creative Future&quot;
-        </h2>
-        <div className="mt-4 text-sm text-gray-700 leading-relaxed">
-          <p className="mb-2">
-            Layer Minder aims to uncover new possibilities for the future by reimagining 
-            heritage industries rooted in local identity. We believe that tradition and 
-            innovation are not opposing forces but complementary layers in the story of 
-            human creativity.
-          </p>
-          <p className="mb-2">
-            By integrating advanced AI technology with the timeless values of craftsmanship, 
-            we seek to preserve the cultural essence of heritage industries 
-            while propelling them into new directions. Layer Minder is committed to ensuring 
-            that these traditions not only survive but thrive, inspiring contemporary 
-            audiences and shaping a more connected, creative future.
-          </p>
-          <p className="mb-2">
-            Together, we are building a bridge between the past and the future, enabling
-            everyone to explore and create with the transformative power of design.
-          </p>
+      {/* 설명 영역 - 스크롤 추가 */}
+      <div className="col-span-4 flex flex-col pl-4" style={{ height: containerHeight }}>
+        <div className="h-full overflow-y-auto pr-2">
+          <h2 className="text-lg font-light text-gray-600 leading-relaxed mb-4">
+            &quot;Redefining Heritage<br />
+            for a Creative Future&quot;
+          </h2>
+          <div className="text-sm text-gray-700 leading-relaxed">
+            <p className="mb-2">
+              Layer Minder aims to uncover new possibilities for the future by reimagining 
+              heritage industries rooted in local identity. We believe that tradition and 
+              innovation are not opposing forces but complementary layers in the story of 
+              human creativity.
+            </p>
+            <p className="mb-2">
+              By integrating advanced AI technology with the timeless values of craftsmanship, 
+              we seek to preserve the cultural essence of heritage industries 
+              while propelling them into new directions. Layer Minder is committed to ensuring 
+              that these traditions not only survive but thrive, inspiring contemporary 
+              audiences and shaping a more connected, creative future.
+            </p>
+            <p className="mb-2">
+              Together, we are building a bridge between the past and the future, enabling
+              everyone to explore and create with the transformative power of design.
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -96,7 +102,7 @@ export default function TopPanel({
 
     if (isExpanded) {
       return (
-        <div className="grid grid-cols-6 gap-2 relative">
+        <div className="grid grid-cols-6 gap-2 relative" style={{ height: containerHeight }}>
           {/* 확장된 이미지 */}
           <div 
             className="absolute top-0 left-0 bg-gray-200 overflow-hidden z-50"
@@ -168,14 +174,14 @@ export default function TopPanel({
             )}
           </div>
 
-          {/* 설명 영역 */}
-          <div className="col-span-4 flex flex-col justify-start pl-4">
-            <h2 className="text-lg font-light text-gray-600 leading-relaxed mb-4">
+          {/* 설명 영역 - 높이 맞춤 및 스크롤 */}
+          <div className="col-span-4 flex flex-col pl-4" style={{ height: containerHeight }}>
+            <h2 className="text-lg font-light text-gray-600 leading-relaxed mb-4 flex-shrink-0">
               Generated Results - {keyword}
             </h2>
             
             {/* 탭 네비게이션 */}
-            <div className="flex gap-2 mb-4">
+            <div className="flex gap-2 mb-4 flex-shrink-0">
               <button
                 onClick={() => setActiveTab('images')}
                 className={`flex items-center gap-1 px-3 py-1 text-sm rounded ${
@@ -222,8 +228,8 @@ export default function TopPanel({
               )}
             </div>
 
-            {/* 탭 콘텐츠 */}
-            <div className="text-sm text-gray-700 leading-relaxed">
+            {/* 탭 콘텐츠 - 스크롤 영역 */}
+            <div className="flex-1 overflow-y-auto text-sm text-gray-700 leading-relaxed pr-2">
               {activeTab === 'images' && (
                 <div>
                   <p className="mb-2">
@@ -289,7 +295,7 @@ export default function TopPanel({
     }
 
     return (
-      <div className="grid grid-cols-6 gap-2 relative">
+      <div className="grid grid-cols-6 gap-2 relative" style={{ height: containerHeight }}>
         {/* 닫기 버튼 */}
         <button 
           className="absolute top-2 right-2 p-1 hover:bg-gray-200 rounded z-10"
@@ -333,14 +339,14 @@ export default function TopPanel({
           )}
         </div>
 
-        {/* 설명 영역 */}
-        <div className="col-span-4 flex flex-col justify-start pl-4">
-          <h2 className="text-lg font-light text-gray-600 leading-relaxed mb-4">
+        {/* 설명 영역 - 높이 맞춤 및 스크롤 */}
+        <div className="col-span-4 flex flex-col pl-4" style={{ height: containerHeight }}>
+          <h2 className="text-lg font-light text-gray-600 leading-relaxed mb-4 flex-shrink-0">
             Generated Results - {keyword}
           </h2>
           
           {/* 탭 네비게이션 */}
-          <div className="flex gap-2 mb-4">
+          <div className="flex gap-2 mb-4 flex-shrink-0">
             <button
               onClick={() => setActiveTab('images')}
               className={`flex items-center gap-1 px-3 py-1 text-sm rounded ${
@@ -387,8 +393,8 @@ export default function TopPanel({
             )}
           </div>
 
-          {/* 탭 콘텐츠 */}
-          <div className="text-sm text-gray-700 leading-relaxed">
+          {/* 탭 콘텐츠 - 스크롤 영역 */}
+          <div className="flex-1 overflow-y-auto text-sm text-gray-700 leading-relaxed pr-2">
             {activeTab === 'images' && (
               <div>
                 <p className="mb-2">
@@ -445,7 +451,7 @@ export default function TopPanel({
     );
   };
 
-  // Details 모드 렌더링 (기존과 동일)
+  // Details 모드 렌더링 (기존과 동일하지만 스크롤 추가)
   const renderDetailsMode = () => {
     if (!selectedRowData) return null;
 
@@ -466,7 +472,7 @@ export default function TopPanel({
 
     if (isExpanded) {
       return (
-        <div className="grid grid-cols-6 gap-2 relative">
+        <div className="grid grid-cols-6 gap-2 relative" style={{ height: containerHeight }}>
           {/* 확장된 이미지 */}
           <div 
             className="absolute top-0 left-0 bg-gray-200 overflow-hidden z-50"
@@ -538,12 +544,13 @@ export default function TopPanel({
             )}
           </div>
 
-          {/* 설명 영역 */}
-          <div className="col-span-4 flex flex-col justify-start pl-4">
-            <h2 className="text-lg font-light text-gray-600 leading-relaxed mb-4">
+          {/* 설명 영역 - 높이 맞춤 및 스크롤 */}
+          <div className="col-span-4 flex flex-col pl-4" style={{ height: containerHeight }}>
+            <h2 className="text-lg font-light text-gray-600 leading-relaxed mb-4 flex-shrink-0">
               Row {selectedRowData.rowIndex + 1} - {keyword} Collection
             </h2>
-            <div className="mt-4 text-sm text-gray-700 leading-relaxed">
+            
+            <div className="flex-1 overflow-y-auto text-sm text-gray-700 leading-relaxed pr-2">
               <p className="mb-2">
                 This collection showcases the &quot;{keyword}&quot; aesthetic through various furniture pieces. 
                 Each piece in this series embodies the core principles of {keyword.toLowerCase()} design, 
@@ -561,7 +568,7 @@ export default function TopPanel({
             </div>
             
             {/* 키워드 태그 */}
-            <div className="flex gap-2 flex-wrap mt-4">
+            <div className="flex gap-2 flex-wrap mt-4 flex-shrink-0">
               <span className="px-3 py-1 bg-gray-800 text-white text-sm rounded">
                 {keyword}
               </span>
@@ -589,7 +596,7 @@ export default function TopPanel({
     }
 
     return (
-      <div className="grid grid-cols-6 gap-2 relative">
+      <div className="grid grid-cols-6 gap-2 relative" style={{ height: containerHeight }}>
         {/* 닫기 버튼 */}
         <button 
           className="absolute top-2 right-2 p-1 hover:bg-gray-200 rounded z-10"
@@ -626,12 +633,13 @@ export default function TopPanel({
           )}
         </div>
 
-        {/* 설명 영역 */}
-        <div className="col-span-4 flex flex-col justify-start pl-4">
-          <h2 className="text-lg font-light text-gray-600 leading-relaxed mb-4">
+        {/* 설명 영역 - 높이 맞춤 및 스크롤 */}
+        <div className="col-span-4 flex flex-col pl-4" style={{ height: containerHeight }}>
+          <h2 className="text-lg font-light text-gray-600 leading-relaxed mb-4 flex-shrink-0">
             Row {selectedRowData.rowIndex + 1} - {keyword} Collection
           </h2>
-          <div className="mt-4 text-sm text-gray-700 leading-relaxed">
+          
+          <div className="flex-1 overflow-y-auto text-sm text-gray-700 leading-relaxed pr-2">
             <p className="mb-2">
               This collection showcases the &quot;{keyword}&quot; aesthetic through various furniture pieces. 
               Each piece in this series embodies the core principles of {keyword.toLowerCase()} design, 
@@ -649,7 +657,7 @@ export default function TopPanel({
           </div>
           
           {/* 키워드 태그 */}
-          <div className="flex gap-2 flex-wrap mt-4">
+          <div className="flex gap-2 flex-wrap mt-4 flex-shrink-0">
             <span className="px-3 py-1 bg-gray-800 text-white text-sm rounded">
               {keyword}
             </span>
@@ -669,7 +677,7 @@ export default function TopPanel({
   };
 
   return (
-    <div className="px-4 pt-4 pb-1" style={{ backgroundColor: '#edeae3' }}>
+    <div className="px-4 pt-4 pb-1 h-80 max-h-80" style={{ backgroundColor: '#edeae3' }}>
       {mode === 'brand' && renderBrandMode()}
       {mode === 'generate' && renderGenerateMode()}
       {mode === 'details' && renderDetailsMode()}
