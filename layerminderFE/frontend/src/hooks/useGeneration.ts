@@ -42,7 +42,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
     context?: GenerationContext;
   } | null>(null);
 
-  // 🔥 생성 결과를 실시간으로 저장하는 ref 추가
+  // 생성 결과를 실시간으로 저장하는 ref
   const generationResultRef = useRef<{
     images?: string[];
     story?: string;
@@ -57,7 +57,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
       sseRef.current = null;
     }
     currentGenerationRef.current = null;
-    generationResultRef.current = {}; // 🔥 결과도 초기화
+    generationResultRef.current = {}; // 결과도 초기화
   }, []);
 
   // 컴포넌트 언마운트 시 정리
@@ -93,7 +93,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
     onError?.(error);
   }, [cleanup, updateState, onError]);
 
-  // 🔥 SSE 이벤트 처리 수정 - ref를 사용해서 실시간 데이터 저장
+  // SSE 이벤트 처리
   const handleSSEEvent = useCallback((eventData: ProcessedSSEEvent) => {
     const current = currentGenerationRef.current;
     if (!current) return;
@@ -101,7 +101,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
     switch (eventData.type) {
       case 'images_generated':
         console.log('📸 Images received:', eventData.data.image_urls?.length || 0);
-        // 🔥 ref에 이미지 저장
+        // ref에 이미지 저장
         generationResultRef.current.images = eventData.data.image_urls || [];
         updateState({
           generatedImages: eventData.data.image_urls || [],
@@ -123,7 +123,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
 
       case 'keywords_generated':
         console.log('🏷️ Keywords received:', eventData.data.keywords?.length || 0);
-        // 🔥 ref에 키워드 저장
+        // ref에 키워드 저장
         generationResultRef.current.keywords = eventData.data.keywords || [];
         updateState({
           generatedKeywords: eventData.data.keywords || [],
@@ -134,7 +134,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
 
       case 'recommendation_ready':
         console.log('💡 Recommendation received');
-        // 🔥 ref에 추천 이미지 저장
+        // ref에 추천 이미지 저장
         generationResultRef.current.recommendation = eventData.data.recommendationUrl;
         updateState({
           recommendationImage: eventData.data.recommendationUrl,
@@ -143,13 +143,13 @@ export function useGeneration(options: UseGenerationOptions = {}) {
           progress: 100
         });
 
-        // 🔥 ref의 데이터를 사용해서 최종 결과 생성
+        // ref의 데이터를 사용해서 최종 결과 생성
         const resultData = generationResultRef.current;
         const result: GeneratedRow = {
           id: current.recordId,
           sessionId: current.sessionId,
           images: [
-            // 🔥 ref에서 생성된 이미지들 가져오기
+            // ref에서 생성된 이미지들 가져오기
             ...(resultData.images || []).map((url, index) => ({
               id: Date.now() + index + 1,
               src: url,
@@ -223,7 +223,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
     }
   }, [updateState, onComplete, user?.id, handleError]);
 
-  // 🔥 메인 생성 함수 - 단일 세션 사용
+  // 메인 생성 함수
   const generate = useCallback(async (files: DroppedFile[], keywords: string[]) => {
     if (!user && typeof window !== 'undefined' && !window.location.search.includes('guest=true')) {
       handleError('Authentication required');
@@ -240,7 +240,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
 
       let sessionId: string;
 
-      // 🔥 NEW: 컨텍스트에 따른 세션 ID 결정
+      // 컨텍스트에 따른 세션 ID 결정
       if (context?.mode === 'room' && context.targetId) {
         // Room 모드: 사용자의 단일 히스토리 세션 사용 (Room ID는 추가 용도로만)
         console.log('🏠 Room mode: Getting user history session...');

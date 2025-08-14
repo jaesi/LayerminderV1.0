@@ -1,56 +1,40 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, MoreVertical, Trash2, Edit3, Globe, Lock } from 'lucide-react';
-import { HistorySession, LayerRoom } from '@/types';
+import { Plus, MoreVertical, Trash2, Edit3, Globe, Lock, History } from 'lucide-react';
+import { LayerRoom } from '@/types';
 
 interface SidebarProps {
   isOpen: boolean;
-  historySessions: HistorySession[];
   rooms: LayerRoom[];
   roomsLoading: boolean;
-  selectedHistoryId: string | null;
   selectedRoomId: string | null;
-  onHistorySelect: (historyId: string | null) => void;
+  isHistoryView: boolean; 
+  onHistoryToggle: () => void; 
   onRoomSelect: (roomId: string | null) => void;
-  onHistoryDelete: (historyId: string) => Promise<void>;
   onRoomDelete: (roomId: string) => Promise<void>;
   onRoomsRefresh: () => Promise<void>;
   onCreateRoom: () => void;
   onEditRoom: (room: LayerRoom) => void;
   onToggleRoomVisibility: (room: LayerRoom) => Promise<void>;
-  onSaveToRoom: (historyId: string) => void;
 }
 
 export default function Sidebar({ 
   isOpen,
-  historySessions,
   rooms,
   roomsLoading,
-  selectedHistoryId,
   selectedRoomId,
-  onHistorySelect,
+  isHistoryView,
+  onHistoryToggle,
   onRoomSelect,
-  onHistoryDelete,
   onRoomDelete,
-  onRoomsRefresh,
   onCreateRoom,
   onEditRoom,
-  onToggleRoomVisibility,
-  onSaveToRoom
+  onToggleRoomVisibility
 }: SidebarProps) {
-  const [historyDropdownOpen, setHistoryDropdownOpen] = useState<string | null>(null);
   const [roomDropdownOpen, setRoomDropdownOpen] = useState<string | null>(null);
 
   if (!isOpen) return null;
-
-  const handleHistoryClick = (historyId: string) => {
-    if (selectedHistoryId === historyId) {
-      onHistorySelect(null);
-    } else {
-      onHistorySelect(historyId);
-    }
-  };
 
   const handleRoomClick = (roomId: string) => {
     if (selectedRoomId === roomId) {
@@ -58,13 +42,6 @@ export default function Sidebar({
     } else {
       onRoomSelect(roomId);
     }
-  };
-
-  const handleHistoryDelete = async (historyId: string) => {
-    if (confirm('이 히스토리를 삭제하시겠습니까?')) {
-      await onHistoryDelete(historyId);
-    }
-    setHistoryDropdownOpen(null);
   };
 
   const handleRoomDelete = async (roomId: string) => {
@@ -81,67 +58,25 @@ export default function Sidebar({
 
   return (
     <div className="fixed left-0 top-16 w-64 h-full p-4 overflow-y-auto" style={{ backgroundColor: '#edeae3' }}>
-      {/* History Sessions 섹션 */}
+      
+      {/* 🔥 NEW: History 섹션 - 단일 토글 버튼 */}
       <div className="mb-6">
-        <h3 className="text-sm font-medium text-gray-600 mb-3">History Sessions</h3>
+        <h3 className="text-sm font-medium text-gray-600 mb-3">History</h3>
         
-        {historySessions.length === 0 ? (
-          <div className="text-xs text-gray-400 italic">No history sessions</div>
-        ) : (
-          <div className="space-y-1">
-            {historySessions.map((session) => (
-              <div key={session.session_id} className="relative">
-                <div className="flex items-center justify-between group">
-                  <button
-                    onClick={() => handleHistoryClick(session.session_id)}
-                    className={`flex-1 flex items-center gap-2 p-1.5 hover:bg-gray-100 rounded text-left ${
-                      selectedHistoryId === session.session_id ? 'font-bold bg-gray-100' : ''
-                    }`}
-                  >
-                    <span className="w-2 h-2 bg-gray-800 rounded-full flex-shrink-0"></span>
-                    <span className="text-sm text-gray-700 truncate">
-                      {new Date(session.created_at).toLocaleDateString()}
-                    </span>
-                  </button>
-                  
-                  <button
-                    onClick={() => setHistoryDropdownOpen(
-                      historyDropdownOpen === session.session_id ? null : session.session_id
-                    )}
-                    className="p-1 hover:bg-gray-200 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <MoreVertical size={12} />
-                  </button>
-                </div>
-
-                {/* History 드롭다운 메뉴 */}
-                {historyDropdownOpen === session.session_id && (
-                  <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded shadow-lg z-10 py-1 w-40">
-                    <button
-                      onClick={() => {
-                        onSaveToRoom(session.session_id);
-                        setHistoryDropdownOpen(null);
-                      }}
-                      className="w-full text-left px-3 py-1 text-xs hover:bg-gray-100 flex items-center gap-2"
-                    >
-                      📌 Save to Room
-                    </button>
-                    <button
-                      onClick={() => handleHistoryDelete(session.session_id)}
-                      className="w-full text-left px-3 py-1 text-xs hover:bg-red-50 text-red-600 flex items-center gap-2"
-                    >
-                      <Trash2 size={12} />
-                      Delete
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+        <div className="space-y-1">
+          <button
+            onClick={onHistoryToggle}
+            className={`w-full flex items-center gap-2 p-1.5 hover:bg-gray-100 rounded text-left ${
+              isHistoryView ? 'font-bold bg-gray-100' : ''
+            }`}
+          >
+            <History size={16} className="flex-shrink-0" />
+            <span className="text-sm text-gray-700">My History</span>
+          </button>
+        </div>
       </div>
 
-      {/* My Rooms 섹션 */}
+      {/* My Rooms 섹션 - 기존과 동일 */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-medium text-gray-600">My Rooms</h3>
