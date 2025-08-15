@@ -9,7 +9,7 @@ import {
   GenerationContext
 } from '@/types';
 import {
-  createHistorySession,
+  getUserHistorySession,
   startImageGeneration,
   createSSEConnectionWithAuth,
   uploadImageWithMetadata,
@@ -42,9 +42,10 @@ export function useGeneration(options: UseGenerationOptions = {}) {
     context?: GenerationContext;
   } | null>(null);
 
-  // 🔥 생성 결과를 실시간으로 저장하는 ref 추가
+  // 생성 결과를 실시간으로 저장하는 ref
   const generationResultRef = useRef<{
     images?: string[];
+    imageIds?: string[];
     story?: string;
     keywords?: string[];
     recommendation?: string;
@@ -57,7 +58,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
       sseRef.current = null;
     }
     currentGenerationRef.current = null;
-    generationResultRef.current = {}; // 🔥 결과도 초기화
+    generationResultRef.current = {}; // 결과도 초기화
   }, []);
 
   // 컴포넌트 언마운트 시 정리
@@ -93,7 +94,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
     onError?.(error);
   }, [cleanup, updateState, onError]);
 
-  // 🔥 SSE 이벤트 처리 수정 - ref를 사용해서 실시간 데이터 저장
+  // SSE 이벤트 처리
   const handleSSEEvent = useCallback((eventData: ProcessedSSEEvent) => {
     const current = currentGenerationRef.current;
     if (!current) return;
@@ -101,8 +102,14 @@ export function useGeneration(options: UseGenerationOptions = {}) {
     switch (eventData.type) {
       case 'images_generated':
         console.log('📸 Images received:', eventData.data.image_urls?.length || 0);
-        // 🔥 ref에 이미지 저장
+        console.log('🔍 ImageIds received:', eventData.data.image_ids);
+        // ref에 이미지 저장
         generationResultRef.current.images = eventData.data.image_urls || [];
+        generationResultRef.current.imageIds = eventData.data.image_ids || [];
+
+        console.log('🔍 Stored in ref - images:', generationResultRef.current.images);
+  console.log('🔍 Stored in ref - imageIds:', generationResultRef.current.imageIds);
+
         updateState({
           generatedImages: eventData.data.image_urls || [],
           currentStep: 'Generating story...',
@@ -112,7 +119,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
 
       case 'story_generated':
         console.log('📝 Story received');
-        // 🔥 ref에 스토리 저장
+        // ref에 스토리 저장
         generationResultRef.current.story = eventData.data.story;
         updateState({
           generatedStory: eventData.data.story,
@@ -123,7 +130,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
 
       case 'keywords_generated':
         console.log('🏷️ Keywords received:', eventData.data.keywords?.length || 0);
-        // 🔥 ref에 키워드 저장
+        // ref에 키워드 저장
         generationResultRef.current.keywords = eventData.data.keywords || [];
         updateState({
           generatedKeywords: eventData.data.keywords || [],
@@ -134,7 +141,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
 
       case 'recommendation_ready':
         console.log('💡 Recommendation received');
-        // 🔥 ref에 추천 이미지 저장
+        // ref에 추천 이미지 저장
         generationResultRef.current.recommendation = eventData.data.recommendationUrl;
         updateState({
           recommendationImage: eventData.data.recommendationUrl,
@@ -143,20 +150,25 @@ export function useGeneration(options: UseGenerationOptions = {}) {
           progress: 100
         });
 
-        // 🔥 ref의 데이터를 사용해서 최종 결과 생성
+        // ref의 데이터를 사용해서 최종 결과 생성
         const resultData = generationResultRef.current;
+        console.log('🔍 Creating final result with imageIds:', resultData.imageIds);
         const result: GeneratedRow = {
           id: current.recordId,
           sessionId: current.sessionId,
           images: [
-            // 🔥 ref에서 생성된 이미지들 가져오기
-            ...(resultData.images || []).map((url, index) => ({
-              id: Date.now() + index + 1,
-              src: url,
-              isPinned: false,
-              type: 'output' as const,
-              imageId: `generated_${current.recordId}_${index}`,
-            })),
+            // ref에서 생성된 이미지들 가져오기
+            ...(resultData.images || []).map((url, index) => {
+              const backendImageId = resultData.imageIds?.[index]; // 백엔드에서 받은 실제 imageId
+              console.log(`🔍 Image ${index}: url=${url}, backendId=${backendImageId}`);
+              return {
+                id: Date.now() + index + 1,
+                src: url,
+                isPinned: false,
+                type: 'output' as const,
+                imageId: backendImageId || `fallback_${current.recordId}_${index}`, // ✅ 백엔드 ID 우선 사용
+              };
+            }),
             // 첫 번째 입력 이미지를 참조로 사용
             {
               id: Date.now() + 1000,
@@ -182,14 +194,20 @@ export function useGeneration(options: UseGenerationOptions = {}) {
         console.log('🖼️ Generated images count:', resultData.images?.length || 0);
 
         // Room 모드인 경우 자동으로 Room에 이미지 추가
-        const roomId = current.context!.targetId;
         if (current.context?.mode === 'room' && current.context.targetId) {
+          const roomId = current.context.targetId;
           console.log('🏠 Auto-adding images to room...');
           
           // 생성된 이미지들을 Room에 추가
           const addPromises = (resultData.images || []).map(async (imageUrl, index) => {
-            const imageId = `generated_${current.recordId}_${index}`;
-            return addImageToRoom(roomId!, {
+            const imageId = resultData.imageIds?.[index];
+
+            if (!imageId) {
+              console.warn(`⚠️ No backend imageId for index ${index}, skipping...`);
+              return null;
+            }
+
+            return addImageToRoom(roomId, {
               image_id: imageId,
               note: `Generated: ${current.keyword}`,
               seq: index
@@ -241,32 +259,35 @@ export function useGeneration(options: UseGenerationOptions = {}) {
       let sessionId: string;
 
       // 컨텍스트에 따른 세션 ID 결정
-      if (context?.mode === 'history' && context.targetId) {
-        // 기존 히스토리 세션 재사용
-        sessionId = context.targetId;
-        console.log('🔄 Using existing history session:', sessionId);
-      } else if (context?.mode === 'room' && context.targetId) {
-        // Room ID를 세션 ID로 사용
-        sessionId = context.targetId;
-        console.log('🏠 Using room ID as session:', sessionId);
+      if (context?.mode === 'room' && context.targetId) {
+        // Room 모드: 사용자의 단일 히스토리 세션 사용 (Room ID는 추가 용도로만)
+        console.log('🏠 Room mode: Getting user history session...');
+        const sessionResult = await getUserHistorySession();
+        
+        if (!sessionResult) {
+          throw new Error('Failed to get user history session for room generation');
+        }
+        
+        sessionId = sessionResult.session_id;
+        console.log('🔄 Using user history session for room:', sessionId);
       } else {
-        // 새 세션 생성
+        // 일반 모드: 사용자의 단일 히스토리 세션 사용
         updateState({
           status: 'creating_session',
           progress: 10,
-          currentStep: 'Creating session...',
+          currentStep: 'Getting session...',
           error: undefined
         });
 
-        console.log('🚀 Creating new session...');
-        const sessionResult = await createHistorySession();
+        console.log('🚀 Getting user history session...');
+        const sessionResult = await getUserHistorySession();
       
         if (!sessionResult) {
-          throw new Error('Failed to create history session');
+          throw new Error('Failed to get user history session');
         }
 
         sessionId = sessionResult.session_id;
-        console.log('✅ New session created:', sessionId);
+        console.log('✅ User history session ready:', sessionId);
       }
 
       updateState({
@@ -349,7 +370,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
       console.error('❌ Generation failed:', error);
       handleError(error instanceof Error ? error.message : 'Generation failed');
     }
-  }, [user, cleanup, updateState, handleError, handleSSEEvent]);
+  }, [user, cleanup, updateState, handleError, handleSSEEvent, context]);
 
   // 생성 취소
   const cancelGeneration = useCallback(() => {

@@ -1,6 +1,6 @@
 // ===== 생성시 컨텍스트 선택 타입들 =====
 export interface GenerationContext {
-  mode: 'new' | 'room' | 'history';
+  mode: 'room' | 'history';
   targetId?: string; // roomId 또는 sessionId
 }
 
@@ -76,6 +76,7 @@ export interface ProcessedSSEEvent {
   type: 'images_generated' | 'story_generated' | 'keywords_generated' | 'recommendation_ready' | 'error' | 'complete' | 'ping';
   data: {
     image_urls?: string[];
+    image_ids?: string[]; 
     story?: string;
     keywords?: string[];
     recommendationUrl?: string;
