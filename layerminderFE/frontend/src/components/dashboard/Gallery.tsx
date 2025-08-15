@@ -77,9 +77,9 @@ export default function Gallery({
   };
 
   const getDisplayRows = () => {
-    if (viewMode === 'history' && selectedHistoryId) {
-      // 선택된 히스토리의 생성된 이미지들 표시
-      const historyGeneratedRows = generatedRows.filter(row => row.sessionId === selectedHistoryId);
+    if (viewMode === 'history') {
+      // 🔥 NEW: History 뷰에서는 모든 생성된 이미지들 표시 (selectedHistoryId 체크 불필요)
+      const historyGeneratedRows = generatedRows; // 모든 생성된 이미지 (단일 세션이므로)
       
       return historyGeneratedRows.map((genRow, index) => {
         const outputImages = genRow.images.filter(img => img.type === 'output');
@@ -149,30 +149,8 @@ export default function Gallery({
       return rows;
     }
 
-    // 기본 모드: 보드 미선택 시 기존 로직
-    const defaultRows = [0, 1, 2].map(createDefaultRow);
-    const defaultGeneratedRows = generatedRows
-      .filter(row => !row.sessionId || !selectedHistoryId) // 특정 히스토리에 속하지 않은 것들
-      .map((genRow, index) => {
-        const outputImages = genRow.images.filter(img => img.type === 'output');
-        const referenceImage = genRow.images.find(img => img.type === 'reference');
-        const keyword = genRow.keyword;
-
-        const items = [
-          ...outputImages.map(img => ({ type: 'output' as const, data: img})),
-          ...(referenceImage ? [{ type: 'reference' as const, data: referenceImage }] : []),
-          { type: 'keyword' as const, data: keyword }
-        ];
-
-        const shuffledItems = isClient ? shuffleArray(items, (index + 1000) * 1000) : items;
-        
-        return {
-          items: shuffledItems,
-          allImages: [...outputImages, ...(referenceImage ? [referenceImage] : [])]
-        };
-      });
-
-    return [...defaultGeneratedRows, ...defaultRows];
+    // 🔥 기본 모드 제거 - History가 기본이므로 항상 History 로직 사용
+    return [];
   };
   
   const createDefaultRow = (rowIndex: number) => {

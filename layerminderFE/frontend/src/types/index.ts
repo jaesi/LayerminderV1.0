@@ -1,6 +1,6 @@
 // ===== 생성시 컨텍스트 선택 타입들 =====
 export interface GenerationContext {
-  mode: 'new' | 'room' | 'history';
+  mode: 'room' | 'history';
   targetId?: string; // roomId 또는 sessionId
 }
 
