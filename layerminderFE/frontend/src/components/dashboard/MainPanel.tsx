@@ -330,13 +330,13 @@ export default function MainPanel({ onGenerate, context }: MainPanelProps) {
         )}
 
         {/* 컨텍스트 안내 */}
-        {context.mode !== 'new' && (
+        {/* {context.mode !== 'new' && (
           <div className="w-80 p-2 bg-blue-50 border border-blue-200 rounded mb-4">
             <p className="text-sm text-blue-700 text-center">
               🔗 {getContextMessage()}
             </p>
           </div>
-        )}
+        )} */}
 
         {/* 원형 프로그레스 바 (생성 중일 때만 표시) */}
         {isGenerating && (

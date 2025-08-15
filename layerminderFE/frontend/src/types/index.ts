@@ -76,6 +76,7 @@ export interface ProcessedSSEEvent {
   type: 'images_generated' | 'story_generated' | 'keywords_generated' | 'recommendation_ready' | 'error' | 'complete' | 'ping';
   data: {
     image_urls?: string[];
+    image_ids?: string[]; 
     story?: string;
     keywords?: string[];
     recommendationUrl?: string;

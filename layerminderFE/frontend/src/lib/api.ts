@@ -110,17 +110,27 @@ export async function createSSEConnectionWithAuth(
     eventSource.addEventListener('images_generated', (event) => {
       try {
         const data: BackendImageData[] = JSON.parse(event.data);
+        console.log('🔍 RAW SSE Data:', event.data); // 원본 데이터
+        console.log('🔍 Parsed Backend Data:', data); // 파싱된 데이터
         console.log('📸 Images generated (backend spec):', data.length, 'images');
         
         // URL들만 추출하여 순서대로 정렬
         const imageUrls = data
           .sort((a, b) => a.seq - b.seq)  // seq로 정렬
-          .map(item => item.url)
+          .map(item => ({
+            url: item.url,  
+            imageId: item.image_id
+          }))
           .filter(url => url);  // null/undefined 제거
+
+          console.log('🔍 Processed imageIds from backend:', imageUrls.map(item => item.imageId));
         
         onEvent({
           type: 'images_generated',
-          data: { image_urls: imageUrls }
+          data: { 
+            image_urls: imageUrls.map(item => item.url),
+            image_ids: imageUrls.map(item => item.imageId)
+           }
         });
       } catch (error) {
         console.error('Error parsing images_generated event:', error);

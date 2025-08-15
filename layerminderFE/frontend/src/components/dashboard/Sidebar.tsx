@@ -59,7 +59,7 @@ export default function Sidebar({
   return (
     <div className="fixed left-0 top-16 w-64 h-full p-4 overflow-y-auto" style={{ backgroundColor: '#edeae3' }}>
       
-      {/* 🔥 NEW: History 섹션 - 단일 토글 버튼 */}
+      {/* History 섹션 - 단일 토글 버튼 */}
       <div className="mb-6">
         <h3 className="text-sm font-medium text-gray-600 mb-3">History</h3>
         
@@ -76,7 +76,7 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* My Rooms 섹션 - 기존과 동일 */}
+      {/* My Rooms 섹션 */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-medium text-gray-600">My Rooms</h3>

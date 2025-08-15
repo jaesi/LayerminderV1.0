@@ -4,11 +4,12 @@ import { useState, useEffect } from 'react';
 import { Pin, X, Trash2 } from 'lucide-react';
 // import { dummyImages, keywords } from '@/data/dummyData';
 import { HistorySession, GeneratedRow, RoomImage, LayerRoom } from '@/types';
+import { dummyImages, keywords } from '@/data/dummyData';
 
 interface GalleryProps {
   onTogglePin: (imageId: number, boardName?: string, createNew?: boolean) => void;
   pinnedImages: number[];
-  boardNames: string[];
+  rooms: LayerRoom[];
   onRowSelect: (rowData: {
     rowIndex: number;
     images: Array<{ 
@@ -33,14 +34,12 @@ interface GalleryProps {
   historySessions: HistorySession[];
   roomImages: RoomImage[];
   roomImagesLoading: boolean;
-  rooms: LayerRoom[];
   onRemoveImageFromRoom?: (roomImageId: string, imageId: string) => Promise<void>;
 }
 
 export default function Gallery({ 
   onTogglePin, 
   pinnedImages, 
-  boardNames,
   onRowSelect,
   viewMode,
   selectedHistoryId,
@@ -54,7 +53,7 @@ export default function Gallery({
 }: GalleryProps) {
   const [pinModalImageId, setPinModalImageId] = useState<number | null>(null);
   const [pinModalPosition, setPinModalPosition] = useState<{top: number, left: number, width: number, height: number} | null>(null);
-  const [boardSearchTerm, setBoardSearchTerm] = useState('');
+  const [roomSearchTerm, setRoomSearchTerm] = useState('');
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -78,8 +77,8 @@ export default function Gallery({
 
   const getDisplayRows = () => {
     if (viewMode === 'history') {
-      // 🔥 NEW: History 뷰에서는 모든 생성된 이미지들 표시 (selectedHistoryId 체크 불필요)
-      const historyGeneratedRows = generatedRows; // 모든 생성된 이미지 (단일 세션이므로)
+      // History 뷰에서는 모든 생성된 이미지들 표시 
+      const historyGeneratedRows = generatedRows; // 모든 생성된 이미지
       
       return historyGeneratedRows.map((genRow, index) => {
         const outputImages = genRow.images.filter(img => img.type === 'output');
@@ -151,24 +150,24 @@ export default function Gallery({
     return [];
   };
   
-  // const createDefaultRow = (rowIndex: number) => {
-  //   const outputImages = dummyImages.outputs.slice(rowIndex * 4, (rowIndex + 1) * 4);
-  //   const referenceImage = dummyImages.references[rowIndex] || dummyImages.references[0];
-  //   const keyword = keywords[rowIndex] || keywords[0];
+  const createDefaultRow = (rowIndex: number) => {
+    const outputImages = dummyImages.outputs.slice(rowIndex * 4, (rowIndex + 1) * 4);
+    const referenceImage = dummyImages.references[rowIndex] || dummyImages.references[0];
+    const keyword = keywords[rowIndex] || keywords[0];
 
-  //   const items = [
-  //     ...outputImages.map(img => ({ type: 'output' as const, data: img})),
-  //     { type: 'reference' as const, data: referenceImage },
-  //     { type: 'keyword' as const, data: keyword }
-  //   ];
+    const items = [
+      ...outputImages.map(img => ({ type: 'output' as const, data: img})),
+      { type: 'reference' as const, data: referenceImage },
+      { type: 'keyword' as const, data: keyword }
+    ];
 
-  //   const shuffledItems = isClient ? shuffleArray(items, rowIndex * 1000) : items;
+    const shuffledItems = isClient ? shuffleArray(items, rowIndex * 1000) : items;
     
-  //   return {
-  //     items: shuffledItems,
-  //     allImages: [...outputImages, referenceImage]
-  //   };
-  // };
+    return {
+      items: shuffledItems,
+      allImages: [...outputImages, referenceImage]
+    };
+  };
 
   const rows = getDisplayRows();
 
@@ -232,15 +231,15 @@ export default function Gallery({
     });
     
     setPinModalImageId(imageId);
-    setBoardSearchTerm('');
+    setRoomSearchTerm('');
   };
 
-  const handleBoardSelect = () => {
+  const handleRoomSelect = (roomId: string) => {
     if (pinModalImageId !== null) {
-      onTogglePin(pinModalImageId);
+      onTogglePin(pinModalImageId, roomId);
       setPinModalImageId(null);
       setPinModalPosition(null);
-      setBoardSearchTerm('');
+      setRoomSearchTerm('');
     }
   };
 
@@ -277,19 +276,19 @@ export default function Gallery({
   const handleCloseModal = () => {
     setPinModalImageId(null);
     setPinModalPosition(null);
-    setBoardSearchTerm('');
+    setRoomSearchTerm('');
   };
 
-  const filteredBoards = boardNames.filter(board => 
-    board.toLowerCase().includes(boardSearchTerm.toLowerCase())
+  const filteredRooms = rooms.filter(room => 
+    room.name.toLowerCase().includes(roomSearchTerm.toLowerCase())
   );
 
-  const handleCreateBoard = (newBoardName: string) => {
+  const handleCreateRoom = () => {
     if (pinModalImageId !== null) {
-      onTogglePin(pinModalImageId, newBoardName, true);
+      onTogglePin(pinModalImageId, undefined, true);
       setPinModalImageId(null);
       setPinModalPosition(null);
-      setBoardSearchTerm('');
+      setRoomSearchTerm('');
     }
   };
 
@@ -297,7 +296,7 @@ export default function Gallery({
     <div className="flex-1 h-full">
       <div className="px-4 pt-1 pb-4 space-y-2">
         {/* 현재 보드 정보 표시 */}
-        {viewMode !== 'default' && (
+        {/* {viewMode !== 'default' && (
           <div className="mb-4 p-2 bg-blue-50 rounded">
             <div className="text-sm text-blue-700">
               {viewMode === 'history' && selectedHistoryId && (
@@ -330,7 +329,7 @@ export default function Gallery({
               )}
             </div>
           </div>
-        )}
+        )} */}
 
         {rows.map((row, rowIndex) => (
           <div key={rowIndex}>
@@ -442,7 +441,7 @@ export default function Gallery({
         ))}
       </div>
 
-      {/* 핀 보드 선택 모달 */}
+      {/* 핀 룸 선택 모달 */}
       {pinModalImageId !== null && pinModalPosition && (
         <>
           <div 
@@ -462,9 +461,9 @@ export default function Gallery({
             <div className="p-2 border-b border-gray-600 flex-shrink-0 flex items-center justify-between">
               <input
                 type="text"
-                placeholder="보드 검색..."
-                value={boardSearchTerm}
-                onChange={(e) => setBoardSearchTerm(e.target.value)}
+                placeholder="룸 검색..."
+                value={roomSearchTerm}
+                onChange={(e) => setRoomSearchTerm(e.target.value)}
                 className="flex-1 px-2 py-1 text-xs border border-gray-300 bg-white text-black placeholder-gray-500 focus:outline-none focus:border-gray-500"
                 autoFocus
               />
@@ -478,14 +477,27 @@ export default function Gallery({
             
             <div className="flex-1 overflow-y-auto">
               <div className="p-1">
-                {filteredBoards.length > 0 ? (
-                  filteredBoards.map((boardName) => (
+                {filteredRooms.length > 0 ? (
+                  filteredRooms.map((room) => (
                     <button
-                      key={boardName}
-                      onClick={handleBoardSelect}
+                      key={room.id}
+                      onClick={() => handleRoomSelect(room.id)}
                       className="w-full text-left px-2 py-1 text-xs hover:bg-gray-100 transition-colors block"
                     >
-                      {boardName}
+                      <div className="flex-1">
+                        <div className="font-medium">
+                          {room.name}
+                        </div>
+                        {room.description && (
+                            <div className="text-gray-500 text-xs truncate">
+                              {room.description}
+                            </div>
+                          )}
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <span className="text-gray-400">({room.pin_count})</span>
+                        {room.is_public && <span className="text-green-400">🌍</span>}
+                      </div>
                     </button>
                   ))
                 ) : (
@@ -493,12 +505,12 @@ export default function Gallery({
                     <div className="px-2 py-1 text-xs text-gray-500">
                       검색 결과가 없습니다.
                     </div>
-                    {boardSearchTerm.trim() && (
+                    {roomSearchTerm.trim() && (
                       <button
-                        onClick={() => handleCreateBoard(boardSearchTerm.trim())}
+                        onClick={() => handleCreateRoom}
                         className="w-full text-left px-2 py-1 text-xs hover:bg-blue-50 text-blue-600 transition-colors"
                       >
-                        &apos;{boardSearchTerm.trim()}&apos; 보드 만들기
+                        &apos;{roomSearchTerm.trim()}&apos; 룸 만들기
                       </button>
                     )}
                   </div>

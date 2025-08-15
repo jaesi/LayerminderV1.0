@@ -45,6 +45,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
   // 생성 결과를 실시간으로 저장하는 ref
   const generationResultRef = useRef<{
     images?: string[];
+    imageIds?: string[];
     story?: string;
     keywords?: string[];
     recommendation?: string;
@@ -101,8 +102,14 @@ export function useGeneration(options: UseGenerationOptions = {}) {
     switch (eventData.type) {
       case 'images_generated':
         console.log('📸 Images received:', eventData.data.image_urls?.length || 0);
+        console.log('🔍 ImageIds received:', eventData.data.image_ids);
         // ref에 이미지 저장
         generationResultRef.current.images = eventData.data.image_urls || [];
+        generationResultRef.current.imageIds = eventData.data.image_ids || [];
+
+        console.log('🔍 Stored in ref - images:', generationResultRef.current.images);
+  console.log('🔍 Stored in ref - imageIds:', generationResultRef.current.imageIds);
+
         updateState({
           generatedImages: eventData.data.image_urls || [],
           currentStep: 'Generating story...',
@@ -145,18 +152,23 @@ export function useGeneration(options: UseGenerationOptions = {}) {
 
         // ref의 데이터를 사용해서 최종 결과 생성
         const resultData = generationResultRef.current;
+        console.log('🔍 Creating final result with imageIds:', resultData.imageIds);
         const result: GeneratedRow = {
           id: current.recordId,
           sessionId: current.sessionId,
           images: [
             // ref에서 생성된 이미지들 가져오기
-            ...(resultData.images || []).map((url, index) => ({
-              id: Date.now() + index + 1,
-              src: url,
-              isPinned: false,
-              type: 'output' as const,
-              imageId: `generated_${current.recordId}_${index}`,
-            })),
+            ...(resultData.images || []).map((url, index) => {
+              const backendImageId = resultData.imageIds?.[index]; // 백엔드에서 받은 실제 imageId
+              console.log(`🔍 Image ${index}: url=${url}, backendId=${backendImageId}`);
+              return {
+                id: Date.now() + index + 1,
+                src: url,
+                isPinned: false,
+                type: 'output' as const,
+                imageId: backendImageId || `fallback_${current.recordId}_${index}`, // ✅ 백엔드 ID 우선 사용
+              };
+            }),
             // 첫 번째 입력 이미지를 참조로 사용
             {
               id: Date.now() + 1000,
@@ -188,7 +200,13 @@ export function useGeneration(options: UseGenerationOptions = {}) {
           
           // 생성된 이미지들을 Room에 추가
           const addPromises = (resultData.images || []).map(async (imageUrl, index) => {
-            const imageId = `generated_${current.recordId}_${index}`;
+            const imageId = resultData.imageIds?.[index];
+
+            if (!imageId) {
+              console.warn(`⚠️ No backend imageId for index ${index}, skipping...`);
+              return null;
+            }
+
             return addImageToRoom(roomId, {
               image_id: imageId,
               note: `Generated: ${current.keyword}`,
