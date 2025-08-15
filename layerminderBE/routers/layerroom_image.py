@@ -139,7 +139,7 @@ def list_images_in_room(
     
     # No images
     if not rows:
-        raise []
+        return []
 
     return [
         RoomImageOut(
