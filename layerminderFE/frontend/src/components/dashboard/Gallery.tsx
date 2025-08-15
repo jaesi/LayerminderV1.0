@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Pin, X, Trash2 } from 'lucide-react';
-import { dummyImages, keywords } from '@/data/dummyData';
+// import { dummyImages, keywords } from '@/data/dummyData';
 import { HistorySession, GeneratedRow, RoomImage, LayerRoom } from '@/types';
 
 interface GalleryProps {
@@ -148,29 +148,27 @@ export default function Gallery({
       
       return rows;
     }
-
-    // 🔥 기본 모드 제거 - History가 기본이므로 항상 History 로직 사용
     return [];
   };
   
-  const createDefaultRow = (rowIndex: number) => {
-    const outputImages = dummyImages.outputs.slice(rowIndex * 4, (rowIndex + 1) * 4);
-    const referenceImage = dummyImages.references[rowIndex] || dummyImages.references[0];
-    const keyword = keywords[rowIndex] || keywords[0];
+  // const createDefaultRow = (rowIndex: number) => {
+  //   const outputImages = dummyImages.outputs.slice(rowIndex * 4, (rowIndex + 1) * 4);
+  //   const referenceImage = dummyImages.references[rowIndex] || dummyImages.references[0];
+  //   const keyword = keywords[rowIndex] || keywords[0];
 
-    const items = [
-      ...outputImages.map(img => ({ type: 'output' as const, data: img})),
-      { type: 'reference' as const, data: referenceImage },
-      { type: 'keyword' as const, data: keyword }
-    ];
+  //   const items = [
+  //     ...outputImages.map(img => ({ type: 'output' as const, data: img})),
+  //     { type: 'reference' as const, data: referenceImage },
+  //     { type: 'keyword' as const, data: keyword }
+  //   ];
 
-    const shuffledItems = isClient ? shuffleArray(items, rowIndex * 1000) : items;
+  //   const shuffledItems = isClient ? shuffleArray(items, rowIndex * 1000) : items;
     
-    return {
-      items: shuffledItems,
-      allImages: [...outputImages, referenceImage]
-    };
-  };
+  //   return {
+  //     items: shuffledItems,
+  //     allImages: [...outputImages, referenceImage]
+  //   };
+  // };
 
   const rows = getDisplayRows();
 

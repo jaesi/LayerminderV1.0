@@ -8,7 +8,7 @@ import MainPanel from '@/components/dashboard/MainPanel';
 import TopPanel from '@/components/dashboard/TopPanel';
 import { GeneratedRow, GenerationContext, HistorySession } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
-import { getUserHistorySession } from '@/lib/api'; // 🔥 NEW: 단일 세션 함수
+import { getUserHistorySession } from '@/lib/api'; 
 import { getRooms, deleteRoom } from '@/lib/api';
 import { LayerRoom } from '@/types';
 import RoomModal from '@/components/dashboard/RoomModal';
@@ -34,12 +34,11 @@ export default function Dashboard() {
   const [pinnedImages, setPinnedImages] = useState<number[]>([]);
   const [topPanelMode, setTopPanelMode] = useState<'brand' | 'generate' | 'details'>('brand');
   const [selectedRowData, setSelectedRowData] = useState<RowSelectData | null>(null);
-  
-  // 🔥 NEW: 단일 상태로 변경
+
   const [isHistoryView, setIsHistoryView] = useState(true); // History가 기본 뷰
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'history' | 'room'>('history'); // default 제거
-  const [userHistorySession, setUserHistorySession] = useState<HistorySession | null>(null); // 🔥 NEW: 사용자의 단일 세션
+  const [userHistorySession, setUserHistorySession] = useState<HistorySession | null>(null); // 사용자의 단일 세션
   
   const [generatedRows, setGeneratedRows] = useState<GeneratedRow[]>([]);
   const [rooms, setRooms] = useState<LayerRoom[]>([]);
@@ -53,13 +52,7 @@ export default function Dashboard() {
   const [roomImages, setRoomImages] = useState<RoomImage[]>([]);
   const [roomImagesLoading, setRoomImagesLoading] = useState(false);  
 
-  const [boardNames, setBoardNames] = useState([
-    'Sofa', 'Lounge Chair', 'Coffee Table', 'Stool', 'Bench', 'Daybed',
-    'Console', 'Dining Table', 'Armless Chair', 'Arm Chair', 'Bar Chair',
-    'Desk', 'Storage', 'Cabinet', 'Bed Headboard', 'Mirror', 'Lighting', 'Artwork'
-  ]);
-
-  // 🔥 NEW: 현재 컨텍스트 계산 - 단순화
+  // 현재 컨텍스트 계산
   const getCurrentContext = useCallback((): GenerationContext => {
     if (selectedRoomId) {
       return {
@@ -109,7 +102,7 @@ export default function Dashboard() {
     }
   };
 
-  // 🔥 NEW: 사용자의 단일 히스토리 세션 로드
+  // 사용자의 단일 히스토리 세션 로드
   const loadUserHistorySession = async () => {
     if (user) {
       try {
@@ -134,7 +127,7 @@ export default function Dashboard() {
     const loadData = async () => {
       if (user) {
         try {
-          // 🔥 NEW: 단일 히스토리 세션 로드
+          // 단일 히스토리 세션 로드
           await loadUserHistorySession();
           
           // Room 목록 로드
@@ -240,7 +233,7 @@ export default function Dashboard() {
     setSelectedRowData(null);
   };
 
-  // 🔥 NEW: History 뷰 토글 핸들러
+  // History 뷰 토글 핸들러
   const handleHistoryToggle = () => {
     setIsHistoryView(true);
     setSelectedRoomId(null);
@@ -358,10 +351,10 @@ export default function Dashboard() {
   };
 
   // History를 Room으로 저장하는 핸들러 (레거시 - 단일 세션에서는 사용하지 않을 예정)
-  const handleSaveToRoom = (historyId: string) => {
-    setSavingHistoryId(historyId);
-    setSaveToRoomModalOpen(true);
-  };
+  // const handleSaveToRoom = (historyId: string) => {
+  //   setSavingHistoryId(historyId);
+  //   setSaveToRoomModalOpen(true);
+  // };
 
   // Room에 History 저장 실행 (레거시)
   const handleSaveHistoryToRoom = async (roomId: string, historyId: string) => {
@@ -414,8 +407,8 @@ export default function Dashboard() {
           rooms={rooms}
           roomsLoading={roomsLoading}
           selectedRoomId={selectedRoomId}
-          isHistoryView={isHistoryView} // 🔥 NEW: 단일 토글 상태
-          onHistoryToggle={handleHistoryToggle} // 🔥 NEW: History 토글
+          isHistoryView={isHistoryView} 
+          onHistoryToggle={handleHistoryToggle} 
           onRoomSelect={handleRoomSelect}
           onRoomDelete={handleRoomDelete}
           onRoomsRefresh={loadRooms}
@@ -454,10 +447,10 @@ export default function Dashboard() {
                 boardNames={boardNames}
                 onRowSelect={handleRowSelect}
                 viewMode={viewMode}
-                selectedHistoryId={userHistorySession?.session_id || null} // 🔥 NEW: 단일 세션 ID 전달
+                selectedHistoryId={userHistorySession?.session_id || null} 
                 selectedRoomId={selectedRoomId}
                 generatedRows={generatedRows}
-                historySessions={userHistorySession ? [userHistorySession] : []} // 🔥 NEW: 단일 세션 배열
+                historySessions={userHistorySession ? [userHistorySession] : []} 
                 roomImages={roomImages}
                 roomImagesLoading={roomImagesLoading}
                 rooms={rooms}

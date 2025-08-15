@@ -112,7 +112,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
 
       case 'story_generated':
         console.log('📝 Story received');
-        // 🔥 ref에 스토리 저장
+        // ref에 스토리 저장
         generationResultRef.current.story = eventData.data.story;
         updateState({
           generatedStory: eventData.data.story,
