@@ -145,7 +145,7 @@ export default function TopPanel({
             </button>
           </div>
 
-          {/* 기본 이미지 영역 (그대로 유지) */}
+          {/* 기본 이미지 영역 */}
           <div className="col-span-2 relative group cursor-pointer" onClick={handleImageClick}>
             <div className="aspect-square bg-gray-200 overflow-hidden">
               <img 

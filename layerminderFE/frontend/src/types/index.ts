@@ -195,7 +195,7 @@ export interface GeneratedRow {
     id: number; 
     src: string; 
     isPinned: boolean; 
-    type: 'output' | 'reference';
+    type: 'output' | 'reference' | 'recommendation';
     imageId?: string;
     fileKey?: string;
     roomImageId?: string;
