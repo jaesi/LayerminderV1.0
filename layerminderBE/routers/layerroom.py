@@ -8,9 +8,7 @@ from postgrest.exceptions import APIError
 from schemas import (
     RoomCreate,
     RoomUpdate,
-    RoomOut,
-    RoomImageCreate,
-    RoomImageOut,
+    RoomOut
 )
 from core.supabase_client import supabase
 from auth import get_current_user

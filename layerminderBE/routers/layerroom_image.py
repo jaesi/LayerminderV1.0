@@ -6,9 +6,6 @@ import uuid
 from postgrest.exceptions import APIError
 
 from schemas import (
-    RoomCreate,
-    RoomUpdate,
-    RoomOut,
     RoomImageCreate,
     RoomImageOut,
 )
@@ -102,14 +99,12 @@ def add_image_to_room(
         seq=row["seq"],
     )
 
-
+# List images in a layer Room
 @router.get("/{room_id}/images", response_model=List[RoomImageOut])
 def list_images_in_room(
     room_id: uuid.UUID, user_id: str = Depends(get_current_user)
 ):
-    """
-    List images in a layer room.
-    """
+
     # 1) Owner check
     try:
         room_res = (
@@ -128,13 +123,13 @@ def list_images_in_room(
     if not room["is_public"] and room["owner_id"] != user_id:
         raise HTTPException(403, "You do not have permission to view this room's images")
 
-    # 2) List
+    # 2) List pinned images
     try:
         img_res = (
             supabase.table("room_images")
             .select("room_image_id, image_id, note, seq, images(url)")
             .eq("room_id", str(room_id))
-            .order("seq")  # seq 순서로 정렬
+            .order("seq")  # Order by seq
             .execute()
         )
     except APIError as e:
@@ -142,16 +137,17 @@ def list_images_in_room(
     
     rows = img_res.data or []
     
+    # No images
     if not rows:
-        raise HTTPException(404, "Image not found")
-    print(rows)
+        return []
+
     return [
         RoomImageOut(
-            room_image_id=row["room_image_id"],
-            image_id=row["image_id"],
-            url=row["images"]["url"],
-            note=row["note"],
-            seq=row["seq"],
+            room_image_id=row.get("room_image_id"),
+            image_id=row.get("image_id"),
+            url=(row.get("images") or {}).get("url"),
+            note=row.get("note"),
+            seq=row.get("seq"),
         )
         for row in rows
     ]
