@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { Pin, X, Trash2 } from 'lucide-react';
 // import { dummyImages, keywords } from '@/data/dummyData';
 import { HistorySession, GeneratedRow, RoomImage, LayerRoom } from '@/types';
-import { dummyImages, keywords } from '@/data/dummyData';
 
 interface GalleryProps {
   onTogglePin: (imageId: number, boardName?: string, createNew?: boolean) => void;
@@ -16,10 +15,10 @@ interface GalleryProps {
       id: number; 
       src: string; 
       isPinned: boolean;
-      type?: 'output' | 'reference';
+      type?: 'output' | 'reference' | 'recommendation'; 
       imageId?: string;
       fileKey?: string;
-      roomImageId?: string; // 추가
+      roomImageId?: string; 
     }>;
     keyword: string;
     startImageIndex?: number;
@@ -82,12 +81,19 @@ export default function Gallery({
       
       return historyGeneratedRows.map((genRow, index) => {
         const outputImages = genRow.images.filter(img => img.type === 'output');
-        const referenceImage = genRow.images.find(img => img.type === 'reference');
         const keyword = genRow.keyword;
 
         const items = [
           ...outputImages.map(img => ({ type: 'output' as const, data: img})),
-          ...(referenceImage ? [{ type: 'reference' as const, data: referenceImage }] : []),
+          ...(genRow.recommendationImage ? [{
+            type: 'recommendation' as const, 
+            data: { 
+              id: Date.now() + 9999 + index, 
+              src: genRow.recommendationImage, 
+              isPinned: false, 
+              type: 'recommendation' as const 
+            }
+          }] : []),
           { type: 'keyword' as const, data: keyword }
         ];
 
@@ -95,7 +101,15 @@ export default function Gallery({
         
         return {
           items: shuffledItems,
-          allImages: [...outputImages, ...(referenceImage ? [referenceImage] : [])]
+          allImages: [
+            ...outputImages,
+            ...(genRow.recommendationImage ? [{
+              id: Date.now() + 9999 + index,
+              src: genRow.recommendationImage,
+              isPinned: false,
+              type: 'recommendation' as const,
+            }] : [])
+          ]
         };
       });
     }
@@ -150,24 +164,24 @@ export default function Gallery({
     return [];
   };
   
-  const createDefaultRow = (rowIndex: number) => {
-    const outputImages = dummyImages.outputs.slice(rowIndex * 4, (rowIndex + 1) * 4);
-    const referenceImage = dummyImages.references[rowIndex] || dummyImages.references[0];
-    const keyword = keywords[rowIndex] || keywords[0];
+  // const createDefaultRow = (rowIndex: number) => {
+  //   const outputImages = dummyImages.outputs.slice(rowIndex * 4, (rowIndex + 1) * 4);
+  //   const referenceImage = dummyImages.references[rowIndex] || dummyImages.references[0];
+  //   const keyword = keywords[rowIndex] || keywords[0];
 
-    const items = [
-      ...outputImages.map(img => ({ type: 'output' as const, data: img})),
-      { type: 'reference' as const, data: referenceImage },
-      { type: 'keyword' as const, data: keyword }
-    ];
+  //   const items = [
+  //     ...outputImages.map(img => ({ type: 'output' as const, data: img})),
+  //     { type: 'reference' as const, data: referenceImage },
+  //     { type: 'keyword' as const, data: keyword }
+  //   ];
 
-    const shuffledItems = isClient ? shuffleArray(items, rowIndex * 1000) : items;
+  //   const shuffledItems = isClient ? shuffleArray(items, rowIndex * 1000) : items;
     
-    return {
-      items: shuffledItems,
-      allImages: [...outputImages, referenceImage]
-    };
-  };
+  //   return {
+  //     items: shuffledItems,
+  //     allImages: [...outputImages, referenceImage]
+  //   };
+  // };
 
   const rows = getDisplayRows();
 
@@ -295,41 +309,6 @@ export default function Gallery({
   return (
     <div className="flex-1 h-full">
       <div className="px-4 pt-1 pb-4 space-y-2">
-        {/* 현재 보드 정보 표시 */}
-        {/* {viewMode !== 'default' && (
-          <div className="mb-4 p-2 bg-blue-50 rounded">
-            <div className="text-sm text-blue-700">
-              {viewMode === 'history' && selectedHistoryId && (
-                <>
-                  현재 히스토리: <strong>
-                    {historySessions.find(s => s.session_id === selectedHistoryId)?.created_at 
-                      ? new Date(historySessions.find(s => s.session_id === selectedHistoryId)!.created_at).toLocaleDateString()
-                      : 'Unknown'}
-                  </strong>
-                  {generatedRows.filter(row => row.sessionId === selectedHistoryId).length > 0 && (
-                    <span className="ml-2 text-blue-500">
-                      (생성된 이미지 {generatedRows.filter(row => row.sessionId === selectedHistoryId).length}개 행)
-                    </span>
-                  )}
-                </>
-              )}
-              {viewMode === 'room' && selectedRoomId && (
-                <>
-                  현재 룸: <strong>
-                    {rooms.find(r => r.id === selectedRoomId)?.name || 'Unknown Room'}
-                  </strong>
-                  {roomImagesLoading ? (
-                    <span className="ml-2 text-blue-500">(이미지 로딩 중...)</span>
-                  ) : (
-                    <span className="ml-2 text-blue-500">
-                      (이미지 {roomImages.length}개)
-                    </span>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        )} */}
 
         {rows.map((row, rowIndex) => (
           <div key={rowIndex}>
@@ -386,11 +365,11 @@ export default function Gallery({
                   );
                 }
                 
-                if (item.type === 'reference') {
+                if (item.type === 'recommendation') {
                   const image = item.data;
                   return (
                     <div
-                      key={`reference-${image.id}-${itemIndex}`}
+                      key={`recommendation-${image.id}-${itemIndex}`}
                       className="relative group cursor-pointer"
                       draggable
                       onDragStart={(e) => handleImageDragStart(e, image.src)}

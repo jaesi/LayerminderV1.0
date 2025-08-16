@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import React from 'react';
-import { ChevronLeft, ChevronRight, X, Sparkles, BookOpen, Hash } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 interface TopPanelProps {
   mode: 'brand' | 'generate' | 'details';
@@ -25,7 +25,6 @@ export default function TopPanel({
 }: TopPanelProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(selectedRowData?.startImageIndex || 0);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [activeTab, setActiveTab] = useState<'images' | 'story' | 'keywords' | 'recommendation'>('images');
 
   // 컨테이너 높이 계산 (패딩 제외)
   const containerHeight = 'calc(320px - 2rem)'; // h-80 - pt-4 - pb-1
@@ -84,7 +83,7 @@ export default function TopPanel({
   const renderGenerateMode = () => {
     if (!selectedRowData) return null;
 
-    const { images, keyword, story, generatedKeywords, recommendationImage } = selectedRowData;
+    const { images, keyword, story, generatedKeywords } = selectedRowData;
     const outputImages = images.filter(img => img.type === 'output');
     const currentImage = outputImages[currentImageIndex] || images[currentImageIndex];
 
@@ -146,7 +145,7 @@ export default function TopPanel({
             </button>
           </div>
 
-          {/* 기본 이미지 영역 (그대로 유지) */}
+          {/* 기본 이미지 영역 */}
           <div className="col-span-2 relative group cursor-pointer" onClick={handleImageClick}>
             <div className="aspect-square bg-gray-200 overflow-hidden">
               <img 
@@ -180,60 +179,34 @@ export default function TopPanel({
               Generated Results - {keyword}
             </h2>
             
-            {/* 탭 네비게이션 */}
-            <div className="flex gap-2 mb-4 flex-shrink-0">
-              <button
-                onClick={() => setActiveTab('images')}
-                className={`flex items-center gap-1 px-3 py-1 text-sm rounded ${
-                  activeTab === 'images' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                <Sparkles size={14} />
-                Images
-              </button>
-              
-              {story && (
-                <button
-                  onClick={() => setActiveTab('story')}
-                  className={`flex items-center gap-1 px-3 py-1 text-sm rounded ${
-                    activeTab === 'story' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                >
-                  <BookOpen size={14} />
-                  Story
-                </button>
-              )}
-              
-              {generatedKeywords && generatedKeywords.length > 0 && (
-                <button
-                  onClick={() => setActiveTab('keywords')}
-                  className={`flex items-center gap-1 px-3 py-1 text-sm rounded ${
-                    activeTab === 'keywords' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                >
-                  <Hash size={14} />
-                  Keywords
-                </button>
-              )}
-              
-              {recommendationImage && (
-                <button
-                  onClick={() => setActiveTab('recommendation')}
-                  className={`flex items-center gap-1 px-3 py-1 text-sm rounded ${
-                    activeTab === 'recommendation' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                >
-                  💡 Recommendation
-                </button>
-              )}
-            </div>
+            {/* 키워드 영역 */}
+            {generatedKeywords && generatedKeywords.length > 0 && (
+              <div className="mb-2 flex-shrink-0">
+                <div className="flex flex-wrap gap-2">
+                  {generatedKeywords.map((kw, index) => (
+                    <span 
+                      key={index}
+                      className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded"
+                    >
+                      {kw}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
-            {/* 탭 콘텐츠 - 스크롤 영역 */}
+            {/* 스토리 영역 - 스크롤 */}
             <div className="flex-1 overflow-y-auto text-sm text-gray-700 leading-relaxed pr-2">
-              {activeTab === 'images' && (
+              {story && (
+                <div className="whitespace-pre-wrap">
+                  {story}
+                </div>
+              )}
+              
+              {!story && (
                 <div>
                   <p className="mb-2">
-                    These images have been generated based on your selected references and the "{keyword}" keyword. 
+                    These images have been generated based on your selected references and the &quot;{keyword}&quot; keyword. 
                     Each result reflects the AI&apos;s interpretation of your creative direction, 
                     combining traditional design elements with contemporary aesthetics.
                   </p>
@@ -245,39 +218,6 @@ export default function TopPanel({
                   <p>
                     Total generated: {outputImages.length} variations
                   </p>
-                </div>
-              )}
-              
-              {activeTab === 'story' && story && (
-                <div className="whitespace-pre-wrap">
-                  {story}
-                </div>
-              )}
-              
-              {activeTab === 'keywords' && generatedKeywords && (
-                <div>
-                  <p className="mb-3">AI-extracted design keywords from the generated images:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {generatedKeywords.map((kw, index) => (
-                      <span 
-                        key={index}
-                        className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded"
-                      >
-                        {kw}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              {activeTab === 'recommendation' && recommendationImage && (
-                <div>
-                  <p className="mb-3">AI-recommended complementary design:</p>
-                  <img 
-                    src={recommendationImage} 
-                    alt="AI Recommendation" 
-                    className="max-w-full h-32 object-cover rounded"
-                  />
                 </div>
               )}
             </div>
@@ -345,60 +285,34 @@ export default function TopPanel({
             Generated Results - {keyword}
           </h2>
           
-          {/* 탭 네비게이션 */}
-          <div className="flex gap-2 mb-4 flex-shrink-0">
-            <button
-              onClick={() => setActiveTab('images')}
-              className={`flex items-center gap-1 px-3 py-1 text-sm rounded ${
-                activeTab === 'images' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-            >
-              <Sparkles size={14} />
-              Images
-            </button>
-            
-            {story && (
-              <button
-                onClick={() => setActiveTab('story')}
-                className={`flex items-center gap-1 px-3 py-1 text-sm rounded ${
-                  activeTab === 'story' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                <BookOpen size={14} />
-                Story
-              </button>
-            )}
-            
-            {generatedKeywords && generatedKeywords.length > 0 && (
-              <button
-                onClick={() => setActiveTab('keywords')}
-                className={`flex items-center gap-1 px-3 py-1 text-sm rounded ${
-                  activeTab === 'keywords' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                <Hash size={14} />
-                Keywords
-              </button>
-            )}
-            
-            {recommendationImage && (
-              <button
-                onClick={() => setActiveTab('recommendation')}
-                className={`flex items-center gap-1 px-3 py-1 text-sm rounded ${
-                  activeTab === 'recommendation' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                💡 Recommendation
-              </button>
-            )}
-          </div>
+          {/* 키워드 영역 */}
+          {generatedKeywords && generatedKeywords.length > 0 && (
+            <div className="mb-2 flex-shrink-0">
+              <div className="flex flex-wrap gap-2">
+                {generatedKeywords.map((kw, index) => (
+                  <span 
+                    key={index}
+                    className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded"
+                  >
+                    {kw}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
-          {/* 탭 콘텐츠 - 스크롤 영역 */}
+          {/* 스토리 영역 - 스크롤 */}
           <div className="flex-1 overflow-y-auto text-sm text-gray-700 leading-relaxed pr-2">
-            {activeTab === 'images' && (
+            {story && (
+              <div className="whitespace-pre-wrap">
+                {story}
+              </div>
+            )}
+            
+            {!story && (
               <div>
                 <p className="mb-2">
-                  These images have been generated based on your selected references and the "{keyword}" keyword. 
+                  These images have been generated based on your selected references and the &quot;{keyword}&quot; keyword. 
                   Each result reflects the AI&apos;s interpretation of your creative direction, 
                   combining traditional design elements with contemporary aesthetics.
                 </p>
@@ -410,39 +324,6 @@ export default function TopPanel({
                 <p>
                   Total generated: {outputImages.length} variations
                 </p>
-              </div>
-            )}
-            
-            {activeTab === 'story' && story && (
-              <div className="whitespace-pre-wrap">
-                {story}
-              </div>
-            )}
-            
-            {activeTab === 'keywords' && generatedKeywords && (
-              <div>
-                <p className="mb-3">AI-extracted design keywords from the generated images:</p>
-                <div className="flex flex-wrap gap-2">
-                  {generatedKeywords.map((kw, index) => (
-                    <span 
-                      key={index}
-                      className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded"
-                    >
-                      {kw}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {activeTab === 'recommendation' && recommendationImage && (
-              <div>
-                <p className="mb-3">AI-recommended complementary design:</p>
-                <img 
-                  src={recommendationImage} 
-                  alt="AI Recommendation" 
-                  className="max-w-full h-32 object-cover rounded"
-                />
               </div>
             )}
           </div>
