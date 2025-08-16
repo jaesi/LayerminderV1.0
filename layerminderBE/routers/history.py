@@ -70,7 +70,7 @@ async def delete_session(
 @router.get("/history_sessions/images")
 def list_session_images(user_id: str = Depends(get_current_user)):
     try:
-        res = (supabase.table("v_record_full")
+        res = (supabase.table("v_record_list")
                 .select("*")
                 .eq("user_id",user_id)
                 .order("created_at")
@@ -80,4 +80,3 @@ def list_session_images(user_id: str = Depends(get_current_user)):
         raise HTTPException(500, detail = f"Supabase Error: {e}")
     data = res.data or []
     return data
-        

@@ -1,10 +1,9 @@
 import os, uuid, base64, asyncio
-from io import BytesIO, BufferedReader
+from io import BytesIO
 from datetime import datetime, timezone
 from typing import List
 import httpx
 from openai import AsyncOpenAI
-from urllib.parse import urlparse, unquote
 
 from core.supabase_client import supabase
 from core.config import settings
