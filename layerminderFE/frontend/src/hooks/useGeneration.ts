@@ -144,6 +144,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
     }
     currentGenerationRef.current = null;
     generationResultRef.current = {}; // 결과도 초기화
+    clearAnimationTimers();
   }, []);
 
   // 컴포넌트 언마운트 시 정리
@@ -256,7 +257,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
       keywordAnimationComplete: false
     });
 
-    // 각 키워드를 0.2초씩 딜레이하며 순차 표시
+    // 각 키워드를 0.3초씩 딜레이하며 순차 표시
     keywords.forEach((keyword, index) => {
       const timer = setTimeout(() => {
         updateAnimationState(prev => {
@@ -272,7 +273,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
             keywordAnimationComplete: index === keywords.length - 1
           };
         });
-      }, index * 200); // 0.2초씩 딜레이
+      }, index * 300); // 0.3초씩 딜레이
       
       animationTimersRef.current.keywordTimers.push(timer);
     });
@@ -301,7 +302,6 @@ export function useGeneration(options: UseGenerationOptions = {}) {
     onError?.(error);
   }, [cleanup, updateState, onError]);
 
-  // SSE 이벤트 처리
   // SSE 이벤트 처리 (기존 로직 + 애니메이션 트리거)
   const handleSSEEvent = useCallback((eventData: ProcessedSSEEvent) => {
     const current = currentGenerationRef.current;
@@ -318,7 +318,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
         updateState({
           generatedImages: eventData.data.image_urls || [],
           currentStep: 'Generating story...',
-          progress: 30
+          progress: 50
         });
 
         // 이미지 애니메이션 시작
@@ -364,6 +364,9 @@ export function useGeneration(options: UseGenerationOptions = {}) {
         console.log('💡 Recommendation received');
         
         generationResultRef.current.recommendation = eventData.data.recommendationUrl;
+
+        // 추천 이미지 표시
+        showRecommendation();
         
         updateState({
           recommendationImage: eventData.data.recommendationUrl,
@@ -372,10 +375,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
           progress: 100
         });
 
-        // 추천 이미지 표시
-        showRecommendation();
-
-        // 최종 결과 생성 및 완료 처리는 기존과 동일
+        // 최종 결과 생성 및 완료 처리
         const resultData = generationResultRef.current;
         const result: GeneratedRow = {
           id: current.recordId,
@@ -411,7 +411,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
           }
         };
 
-        // Room 모드 처리 (기존과 동일)
+        // Room 모드 처리
         if (current.context?.mode === 'room' && current.context.targetId) {
           const roomId = current.context.targetId;
           const addPromises = (resultData.images || []).map(async (imageUrl, index) => {
@@ -638,6 +638,8 @@ export function useGeneration(options: UseGenerationOptions = {}) {
     // 상태
     ...state,
     isGenerating: state.status !== 'idle' && state.status !== 'completed' && state.status !== 'error',
+
+    animationState: state.animation,
     
     // 액션
     generate,

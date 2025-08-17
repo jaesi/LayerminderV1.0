@@ -4,7 +4,6 @@ import React, { useState, useRef } from 'react';
 import { X, Loader2, AlertCircle, CheckCircle, Zap, Clock } from 'lucide-react';
 import { DroppedFile, GeneratedRow, GenerationContext } from '@/types';
 import { useGeneration } from '@/hooks/useGeneration';
-import { on } from 'events';
 
 interface MainPanelProps {
   onGenerate: (result: GeneratedRow) => void;
@@ -84,31 +83,16 @@ export default function MainPanel({ onGenerate, context, onAnimationStateChange,
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 컨텍스트별 안내 메시지
-  const getContextMessage = () => {
-    switch (context.mode) {
-      case 'room':
-        return '이 Room에 이미지가 추가됩니다';
-      case 'history':
-        return '기존 세션에 이미지가 추가됩니다';
-      default:
-        return '새로운 세션이 생성됩니다';
-    }
-  };
-
   // 새로운 생성 훅 사용
   const {
     status,
     progress,
     error: generationError,
-    sessionId,
-    recordId,
     isGenerating,
     isSSEConnected,
     animationState,
     generate,
     cancelGeneration,
-    reset
   } = useGeneration({
     context,
     onComplete: (result) => {
@@ -134,61 +118,33 @@ export default function MainPanel({ onGenerate, context, onAnimationStateChange,
     onProgress: (step, progressValue) => {
       console.log(`📊 Progress: ${step} (${progressValue}%)`);
     },
+
     // 애니메이션 콜백들
-    onImageAnimationUpdate: (images, imageIds) => {
+    onImageAnimationUpdate: (images) => {
       console.log('🎬 Image animation updated:', images.length);
-      // 상위 컴포넌트에 애니메이션 상태 전달
-      if (onAnimationStateChange && animationState) {
-        onAnimationStateChange({
-          ...animationState,
-          animatedImages: images,
-          animatedImageIds: imageIds
-        });
-      }
     },
     onStoryAnimationUpdate: (text) => {
       console.log('✍️ Story animation updated:', text.length, 'characters');
-      // 상위 컴포넌트에 애니메이션 상태 전달
-      if (onAnimationStateChange && animationState) {
-        onAnimationStateChange({
-          ...animationState,
-          animatedStoryText: text
-        });
-      }
     },
     onKeywordAnimationUpdate: (keywords) => {
       console.log('🏷️ Keyword animation updated:', keywords.length);
-      // 상위 컴포넌트에 애니메이션 상태 전달
-      if (onAnimationStateChange && animationState) {
-        onAnimationStateChange({
-          ...animationState,
-          animatedKeywords: keywords
-        });
-      }
     },
     onRecommendationShow: () => {
       console.log('💡 Recommendation shown');
-      // 상위 컴포넌트에 애니메이션 상태 전달
-      if (onAnimationStateChange && animationState) {
-        onAnimationStateChange({
-          ...animationState,
-          recommendationVisible: true
-        });
-      }
     }
   });
 
   // 생성 상태 변경 시 상위 컴포넌트에 알림
   React.useEffect(() => {
     onGenerationModeChange?.(isGenerating);
-  }, [isGenerating, onGenerationModeChange]);
+  }, [isGenerating]);
 
   // 애니메이션 상태 변경 시 상위 컴포넌트에 전달
   React.useEffect(() => {
     if (animationState && onAnimationStateChange) {
       onAnimationStateChange(animationState);
     }
-  }, [animationState, onAnimationStateChange]);
+  }, [animationState]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -403,15 +359,6 @@ export default function MainPanel({ onGenerate, context, onAnimationStateChange,
             </ul>
           </div>
         )}
-
-        {/* 컨텍스트 안내 */}
-        {/* {context.mode !== 'new' && (
-          <div className="w-80 p-2 bg-blue-50 border border-blue-200 rounded mb-4">
-            <p className="text-sm text-blue-700 text-center">
-              🔗 {getContextMessage()}
-            </p>
-          </div>
-        )} */}
 
         {/* 원형 프로그레스 바 (생성 중일 때만 표시) */}
         {isGenerating && (

@@ -123,10 +123,10 @@ export default function TopPanel({
       ? animationState.animatedKeywords
       : selectedRowData?.generatedKeywords || [];
 
-    // 추천 이미지 표시 여부
-    const showRecommendation = isGenerating 
-      ? animationState?.recommendationVisible || false
-      : !!selectedRowData?.recommendationImage;
+    // // 추천 이미지 표시 여부
+    // const showRecommendation = isGenerating 
+    //   ? animationState?.recommendationVisible || false
+    //   : !!selectedRowData?.recommendationImage;
 
     const currentImage = displayImages[currentImageIndex] || displayImages[0];
     const keyword = selectedRowData?.keyword || 'Generated';
@@ -238,7 +238,7 @@ export default function TopPanel({
                     <span 
                       key={index}
                       className={`px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded transition-all duration-200 ${
-                        isGenerating ? 'animate-fadeIn' : ''
+                        isGenerating ? 'animate-fade-in' : ''
                       }`}
                       style={{ 
                         animationDelay: isGenerating ? `${index * 200}ms` : '0ms' 
@@ -378,7 +378,7 @@ export default function TopPanel({
                   <span 
                     key={index}
                     className={`px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded transition-all duration-200 ${
-                      isGenerating ? 'animate-fadeIn' : ''
+                      isGenerating ? 'animate-fade-in' : ''
                     }`}
                     style={{ 
                       animationDelay: isGenerating ? `${index * 200}ms` : '0ms' 
