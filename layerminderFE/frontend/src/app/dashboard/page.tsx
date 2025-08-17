@@ -29,6 +29,18 @@ interface RowSelectData {
   recommendationImage?: string;
 }
 
+// 애니메이션 상태 타입 정의
+interface AnimationState {
+  animatedImages: string[];
+  animatedImageIds: string[];
+  imageAnimationComplete: boolean;
+  animatedStoryText: string;
+  storyAnimationComplete: boolean;
+  animatedKeywords: string[];
+  keywordAnimationComplete: boolean;
+  recommendationVisible: boolean;
+}
+
 export default function Dashboard() {
   const { user, loading } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -54,6 +66,18 @@ export default function Dashboard() {
   const [modalLoading, setModalLoading] = useState(false);
   const [roomImages, setRoomImages] = useState<RoomImage[]>([]);
   const [roomImagesLoading, setRoomImagesLoading] = useState(false);  
+
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [animationState, setAnimationState] = useState<AnimationState>({
+    animatedImages: [],
+    animatedImageIds: [],
+    imageAnimationComplete: false,
+    animatedStoryText: '',
+    storyAnimationComplete: false,
+    animatedKeywords: [],
+    keywordAnimationComplete: false,
+    recommendationVisible: false
+  });
 
   // 현재 컨텍스트 계산
   const getCurrentContext = useCallback((): GenerationContext => {
@@ -382,6 +406,54 @@ export default function Dashboard() {
       generatedKeywords: result.generatedKeywords,
       recommendationImage: result.recommendationImage
     });
+
+    // 애니메이션 상태 초기화 (생성 완료 후)
+    setAnimationState({
+      animatedImages: [],
+      animatedImageIds: [],
+      imageAnimationComplete: false,
+      animatedStoryText: '',
+      storyAnimationComplete: false,
+      animatedKeywords: [],
+      keywordAnimationComplete: false,
+      recommendationVisible: false
+    });
+    setIsGenerating(false);
+  };
+
+  // 생성 모드 변경 핸들러
+  const handleGenerationModeChange = (generating: boolean) => {
+    console.log('🎬 Generation mode changed:', generating);
+    setIsGenerating(generating);
+    
+    if (generating) {
+      // 생성 시작 시 TopPanel을 generate 모드로 전환
+      setTopPanelMode('generate');
+      // 애니메이션 상태 초기화
+      setAnimationState({
+        animatedImages: [],
+        animatedImageIds: [],
+        imageAnimationComplete: false,
+        animatedStoryText: '',
+        storyAnimationComplete: false,
+        animatedKeywords: [],
+        keywordAnimationComplete: false,
+        recommendationVisible: false
+      });
+      // 기존 선택 데이터 클리어 (새로운 생성을 위해)
+      setSelectedRowData(null);
+    }
+  };
+
+  // 애니메이션 상태 변경 핸들러
+  const handleAnimationStateChange = (newAnimationState: AnimationState) => {
+    console.log('🎭 Animation state updated:', {
+      images: newAnimationState.animatedImages.length,
+      storyLength: newAnimationState.animatedStoryText.length,
+      keywords: newAnimationState.animatedKeywords.length,
+      recommendation: newAnimationState.recommendationVisible
+    });
+    setAnimationState(newAnimationState);
   };
 
   // 행 선택 핸들러
@@ -401,6 +473,16 @@ export default function Dashboard() {
   const handleCloseTopPanel = () => {
     setTopPanelMode('brand');
     setSelectedRowData(null);
+    setAnimationState({
+      animatedImages: [],
+      animatedImageIds: [],
+      imageAnimationComplete: false,
+      animatedStoryText: '',
+      storyAnimationComplete: false,
+      animatedKeywords: [],
+      keywordAnimationComplete: false,
+      recommendationVisible: false
+    });
   };
 
   // History 뷰 토글 핸들러
@@ -410,8 +492,8 @@ export default function Dashboard() {
     setViewMode('history');
     setTopPanelMode('brand');
     setSelectedRowData(null);
-    setRoomImages([]); // Room 이미지 클리어
-    loadHistoryImages(); // 히스토리 이미지 새로고침
+    setRoomImages([]); 
+    loadHistoryImages(); 
   };
 
   // Room 선택 핸들러
@@ -596,6 +678,8 @@ export default function Dashboard() {
             <MainPanel 
               onGenerate={handleGenerationComplete}
               context={getCurrentContext()}
+              onAnimationStateChange={handleAnimationStateChange}
+              onGenerationModeChange={handleGenerationModeChange}
             />
           </div>
           
@@ -607,6 +691,8 @@ export default function Dashboard() {
                 mode={topPanelMode}
                 selectedRowData={selectedRowData}
                 onClose={handleCloseTopPanel}
+                animationState={animationState}
+                isGenerating={isGenerating}
               />
             </div>
               
