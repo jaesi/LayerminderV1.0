@@ -4,10 +4,22 @@ import React, { useState, useRef } from 'react';
 import { X, Loader2, AlertCircle, CheckCircle, Zap, Clock } from 'lucide-react';
 import { DroppedFile, GeneratedRow, GenerationContext } from '@/types';
 import { useGeneration } from '@/hooks/useGeneration';
+import { on } from 'events';
 
 interface MainPanelProps {
   onGenerate: (result: GeneratedRow) => void;
   context: GenerationContext;
+  onAnimationStateChange?: (animationState: {
+    animatedImages: string[];
+    animatedImageIds: string[];
+    imageAnimationComplete: boolean;
+    animatedStoryText: string;
+    storyAnimationComplete: boolean;
+    animatedKeywords: string[];
+    keywordAnimationComplete: boolean;
+    recommendationVisible: boolean;
+  }) => void;
+  onGenerationModeChange?: (isGenerating: boolean) => void;
 }
 
 // 간단한 파일 검증
@@ -66,7 +78,7 @@ const CircularProgress = ({ progress, size = 200 }: { progress: number; size?: n
   );
 };
 
-export default function MainPanel({ onGenerate, context }: MainPanelProps) {
+export default function MainPanel({ onGenerate, context, onAnimationStateChange, onGenerationModeChange }: MainPanelProps) {
   const [droppedFiles, setDroppedFiles] = useState<DroppedFile[]>([]);
   const [droppedKeywords, setDroppedKeywords] = useState<string[]>([]);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
@@ -93,6 +105,7 @@ export default function MainPanel({ onGenerate, context }: MainPanelProps) {
     recordId,
     isGenerating,
     isSSEConnected,
+    animationState,
     generate,
     cancelGeneration,
     reset
@@ -109,15 +122,73 @@ export default function MainPanel({ onGenerate, context }: MainPanelProps) {
       setDroppedFiles([]);
       setDroppedKeywords([]);
       setValidationErrors([]);
+
+      // 생성모드 변경 알림
+      onGenerationModeChange?.(false);
     },
     onError: (error) => {
       console.error('❌ Generation failed:', error);
       setValidationErrors([error]);
+      onGenerationModeChange?.(false);
     },
     onProgress: (step, progressValue) => {
       console.log(`📊 Progress: ${step} (${progressValue}%)`);
+    },
+    // 애니메이션 콜백들
+    onImageAnimationUpdate: (images, imageIds) => {
+      console.log('🎬 Image animation updated:', images.length);
+      // 상위 컴포넌트에 애니메이션 상태 전달
+      if (onAnimationStateChange && animationState) {
+        onAnimationStateChange({
+          ...animationState,
+          animatedImages: images,
+          animatedImageIds: imageIds
+        });
+      }
+    },
+    onStoryAnimationUpdate: (text) => {
+      console.log('✍️ Story animation updated:', text.length, 'characters');
+      // 상위 컴포넌트에 애니메이션 상태 전달
+      if (onAnimationStateChange && animationState) {
+        onAnimationStateChange({
+          ...animationState,
+          animatedStoryText: text
+        });
+      }
+    },
+    onKeywordAnimationUpdate: (keywords) => {
+      console.log('🏷️ Keyword animation updated:', keywords.length);
+      // 상위 컴포넌트에 애니메이션 상태 전달
+      if (onAnimationStateChange && animationState) {
+        onAnimationStateChange({
+          ...animationState,
+          animatedKeywords: keywords
+        });
+      }
+    },
+    onRecommendationShow: () => {
+      console.log('💡 Recommendation shown');
+      // 상위 컴포넌트에 애니메이션 상태 전달
+      if (onAnimationStateChange && animationState) {
+        onAnimationStateChange({
+          ...animationState,
+          recommendationVisible: true
+        });
+      }
     }
   });
+
+  // 생성 상태 변경 시 상위 컴포넌트에 알림
+  React.useEffect(() => {
+    onGenerationModeChange?.(isGenerating);
+  }, [isGenerating, onGenerationModeChange]);
+
+  // 애니메이션 상태 변경 시 상위 컴포넌트에 전달
+  React.useEffect(() => {
+    if (animationState && onAnimationStateChange) {
+      onAnimationStateChange(animationState);
+    }
+  }, [animationState, onAnimationStateChange]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -256,12 +327,16 @@ export default function MainPanel({ onGenerate, context }: MainPanelProps) {
     setValidationErrors([]);
 
     try {
+      // 생성 시작 알림
+      onGenerationModeChange?.(true);
+
       await generate(droppedFiles, droppedKeywords);
     } catch (error) {
       console.error('Generate failed:', error);
       setValidationErrors([
         error instanceof Error ? error.message : '생성에 실패했습니다. 다시 시도해주세요.'
       ]);
+      onGenerationModeChange?.(false);
     }
   };
 
