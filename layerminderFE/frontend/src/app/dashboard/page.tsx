@@ -6,9 +6,9 @@ import Sidebar from '@/components/dashboard/Sidebar';
 import Gallery from '@/components/dashboard/Gallery';
 import MainPanel from '@/components/dashboard/MainPanel';
 import TopPanel from '@/components/dashboard/TopPanel';
-import { GeneratedRow, GenerationContext, HistorySession } from '@/types';
+import { GeneratedRow, GenerationContext, HistorySession, ProcessedHistoryRow } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
-import { addImageToRoom, getUserHistorySession } from '@/lib/api'; 
+import { addImageToRoom, getUserHistoryImages, getUserHistorySession } from '@/lib/api'; 
 import { getRooms, deleteRoom } from '@/lib/api';
 import { LayerRoom } from '@/types';
 import RoomModal from '@/components/dashboard/RoomModal';
@@ -36,10 +36,12 @@ export default function Dashboard() {
   const [topPanelMode, setTopPanelMode] = useState<'brand' | 'generate' | 'details'>('brand');
   const [selectedRowData, setSelectedRowData] = useState<RowSelectData | null>(null);
 
-  const [isHistoryView, setIsHistoryView] = useState(true); // History가 기본 뷰
+  const [isHistoryView, setIsHistoryView] = useState(true); 
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'history' | 'room'>('history'); // default 제거
-  const [userHistorySession, setUserHistorySession] = useState<HistorySession | null>(null); // 사용자의 단일 세션
+  const [viewMode, setViewMode] = useState<'history' | 'room'>('history'); 
+  const [userHistorySession, setUserHistorySession] = useState<HistorySession | null>(null); 
+  const [historyImages, setHistoryImages] = useState<ProcessedHistoryRow[]>([]);
+  const [historyImagesLoading, setHistoryImagesLoading] = useState(false);
   
   const [generatedRows, setGeneratedRows] = useState<GeneratedRow[]>([]);
   const [rooms, setRooms] = useState<LayerRoom[]>([]);
@@ -87,6 +89,74 @@ export default function Dashboard() {
     }
   };
 
+   // 히스토리 이미지 로드 함수
+  const loadHistoryImages = async () => {
+    if (user) {
+      setHistoryImagesLoading(true);
+      try {
+        const historyData = await getUserHistoryImages();
+        if (historyData) {
+          // 백엔드 데이터를 프론트엔드 형식으로 변환
+          const processedRows: ProcessedHistoryRow[] = historyData.map((record, index) => {
+            const images = [
+              {
+                id: Date.now() + index * 10 + 1,
+                src: record.gen_image_1,
+                isPinned: false,
+                type: 'output' as const,
+                imageId: `${record.record_id}_gen1`
+              },
+              {
+                id: Date.now() + index * 10 + 2,
+                src: record.gen_image_2,
+                isPinned: false,
+                type: 'output' as const,
+                imageId: `${record.record_id}_gen2`
+              },
+              {
+                id: Date.now() + index * 10 + 3,
+                src: record.gen_image_3,
+                isPinned: false,
+                type: 'output' as const,
+                imageId: `${record.record_id}_gen3`
+              },
+              {
+                id: Date.now() + index * 10 + 4,
+                src: record.gen_image_4,
+                isPinned: false,
+                type: 'output' as const,
+                imageId: `${record.record_id}_gen4`
+              },
+              {
+                id: Date.now() + index * 10 + 5,
+                src: record.reference_image_url,
+                isPinned: false,
+                type: 'reference' as const,
+                imageId: `${record.record_id}_ref`
+              }
+            ];
+
+            return {
+              recordId: record.record_id,
+              keyword: record.keywords[0] || 'Generated',
+              keywords: record.keywords,
+              images,
+              createdAt: record.created_at,
+              createdDay: record.created_day
+            };
+          });
+
+          setHistoryImages(processedRows);
+          console.log('✅ History images processed:', processedRows.length);
+        }
+      } catch (error) {
+        console.error('Failed to load history images:', error);
+      } finally {
+        setHistoryImagesLoading(false);
+      }
+    }
+  };
+
   // Room 이미지 로드 함수
   const loadRoomImages = async (roomId: string) => {
     setRoomImagesLoading(true);
@@ -128,11 +198,14 @@ export default function Dashboard() {
     const loadData = async () => {
       if (user) {
         try {
+
           // 단일 히스토리 세션 로드
           await loadUserHistorySession();
-          
+          // 히스토리 이미지 로드
+          await loadHistoryImages();
           // Room 목록 로드
           await loadRooms();
+
         } catch (error) {
           console.error('Failed to load data:', error);
         }
@@ -338,6 +411,7 @@ export default function Dashboard() {
     setTopPanelMode('brand');
     setSelectedRowData(null);
     setRoomImages([]); // Room 이미지 클리어
+    loadHistoryImages(); // 히스토리 이미지 새로고침
   };
 
   // Room 선택 핸들러
@@ -551,6 +625,8 @@ export default function Dashboard() {
                 roomImages={roomImages}
                 roomImagesLoading={roomImagesLoading}
                 onRemoveImageFromRoom={handleRemoveImageFromRoom}
+                historyImages={historyImages}
+                historyImagesLoading={historyImagesLoading}
               />
             </div>
           </div>
@@ -558,7 +634,7 @@ export default function Dashboard() {
       </div>
 
       {/* Room 생성/수정 모달 */}
-      <RoomModal
+      <RoomModal 
         isOpen={roomModalOpen}
         mode={roomModalMode}
         room={editingRoom}

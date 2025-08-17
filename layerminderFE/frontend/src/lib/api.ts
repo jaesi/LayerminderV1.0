@@ -11,6 +11,7 @@ import {
   UpdateRoomRequest,
   AddImageToRoomRequest,
   RoomImage,
+  HistoryImagesResponse,
 } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
@@ -325,6 +326,45 @@ export async function createSSEConnectionWithAuth(
 }
 
 // ===== API 함수들 =====
+/**
+ * 사용자의 모든 히스토리 이미지 가져오기
+ */
+export async function getUserHistoryImages(): Promise<HistoryImagesResponse | null> {
+  try {
+    const token = await getAuthToken();
+    if (!token) {
+      throw new Error('Authentication token required');
+    }
+
+    const { getCurrentUser } = await import('@/lib/supabase');
+    const user = await getCurrentUser();
+
+    if (!user?.id) {
+      throw new Error('User ID not found');
+    }
+
+    console.log('📋 Getting user history images for user:', user.id);
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/history_sessions/images`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const historyImages = await response.json() as HistoryImagesResponse;
+    console.log('✅ History images loaded:', historyImages.length);
+    return historyImages;
+  } catch (error) {
+    console.error('Get user history images error:', error);
+    return null;
+  }
+}
 
 /**
  * 사용자의 단일 히스토리 세션 가져오기 (없으면 생성)

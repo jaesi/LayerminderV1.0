@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Pin, X, Trash2 } from 'lucide-react';
 // import { dummyImages, keywords } from '@/data/dummyData';
-import { HistorySession, GeneratedRow, RoomImage, LayerRoom } from '@/types';
+import { HistorySession, GeneratedRow, RoomImage, LayerRoom, ProcessedHistoryRow } from '@/types';
 
 interface GalleryProps {
   onTogglePin: (imageId: number, boardName?: string, createNew?: boolean) => void;
@@ -34,6 +34,8 @@ interface GalleryProps {
   roomImages: RoomImage[];
   roomImagesLoading: boolean;
   onRemoveImageFromRoom?: (roomImageId: string, imageId: string) => Promise<void>;
+  historyImages: ProcessedHistoryRow[];
+  historyImagesLoading: boolean;
 }
 
 export default function Gallery({ 
@@ -48,7 +50,9 @@ export default function Gallery({
   roomImages,
   roomImagesLoading,
   rooms,
-  onRemoveImageFromRoom
+  onRemoveImageFromRoom,
+  historyImages,
+  historyImagesLoading
 }: GalleryProps) {
   const [pinModalImageId, setPinModalImageId] = useState<number | null>(null);
   const [pinModalPosition, setPinModalPosition] = useState<{top: number, left: number, width: number, height: number} | null>(null);
@@ -76,8 +80,41 @@ export default function Gallery({
 
   const getDisplayRows = () => {
     if (viewMode === 'history') {
-      // History 뷰에서는 모든 생성된 이미지들 표시 
-      const historyGeneratedRows = generatedRows; // 모든 생성된 이미지
+      // 히스토리 로딩 중
+      if (historyImagesLoading) {
+        return [];
+      }
+
+      // 히스토리 API에서 가져온 데이터 우선 표시
+      if (historyImages.length > 0) {
+        return historyImages.map((historyRow, index) => {
+          const items = [
+            // 생성된 이미지 4개
+            ...historyRow.images.filter(img => img.type === 'output').map(img => ({ 
+              type: 'output' as const, 
+              data: img
+            })),
+            // 레퍼런스 이미지 1개
+            ...historyRow.images.filter(img => img.type === 'reference').map(img => ({ 
+              type: 'reference' as const, 
+              data: img
+            })),
+            // 키워드
+            { type: 'keyword' as const, data: historyRow.keyword }
+          ];
+
+          const shuffledItems = isClient ? shuffleArray(items, index * 1000) : items;
+          
+          return {
+            items: shuffledItems,
+            allImages: historyRow.images,
+            historyData: historyRow // 히스토리 데이터 추가
+          };
+        });
+      }
+
+      // 실시간 생성된 이미지들
+      const historyGeneratedRows = generatedRows;
       
       return historyGeneratedRows.map((genRow, index) => {
         const outputImages = genRow.images.filter(img => img.type === 'output');
@@ -276,13 +313,18 @@ export default function Gallery({
       genRow.images.some(img => allImages.some(allImg => allImg.src === img.src))
     );
 
+    // 히스토리 데이터에서도 찾기
+    const historyRow = historyImages.find(histRow =>
+      histRow.images.some(img => allImages.some(allImg => allImg.src === img.src))
+    );
+
     onRowSelect({
     rowIndex,
     images: allImages,
     keyword: keyword ?? '',
     startImageIndex,
     story: generatedRow?.story,
-    generatedKeywords: generatedRow?.generatedKeywords,
+    generatedKeywords: generatedRow?.generatedKeywords || historyRow?.keywords,
     recommendationImage: generatedRow?.recommendationImage
   });
   };
@@ -309,6 +351,36 @@ export default function Gallery({
   return (
     <div className="flex-1 h-full">
       <div className="px-4 pt-1 pb-4 space-y-2">
+
+        {/* 히스토리 로딩 상태 표시 */}
+        {viewMode === 'history' && historyImagesLoading && (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+            <span className="ml-2 text-gray-600">히스토리를 불러오는 중...</span>
+          </div>
+        )}
+
+        {/* 히스토리 데이터가 없을 때 */}
+        {viewMode === 'history' && !historyImagesLoading && historyImages.length === 0 && generatedRows.length === 0 && (
+          <div className="flex items-center justify-center py-8">
+            <span className="text-gray-500">생성된 이미지가 없습니다.</span>
+          </div>
+        )}
+
+        {/* Room 로딩 상태 표시 */}
+        {viewMode === 'room' && roomImagesLoading && (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+            <span className="ml-2 text-gray-600">룸 이미지를 불러오는 중...</span>
+          </div>
+        )}
+
+        {/* Room 데이터가 없을 때 */}
+        {viewMode === 'room' && !roomImagesLoading && roomImages.length === 0 && (
+          <div className="flex items-center justify-center py-8">
+            <span className="text-gray-500">룸에 저장된 이미지가 없습니다.</span>
+          </div>
+        )}
 
         {rows.map((row, rowIndex) => (
           <div key={rowIndex}>
