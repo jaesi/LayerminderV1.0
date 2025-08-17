@@ -8,6 +8,17 @@ import { useGeneration } from '@/hooks/useGeneration';
 interface MainPanelProps {
   onGenerate: (result: GeneratedRow) => void;
   context: GenerationContext;
+  onAnimationStateChange?: (animationState: {
+    animatedImages: string[];
+    animatedImageIds: string[];
+    imageAnimationComplete: boolean;
+    animatedStoryText: string;
+    storyAnimationComplete: boolean;
+    animatedKeywords: string[];
+    keywordAnimationComplete: boolean;
+    recommendationVisible: boolean;
+  }) => void;
+  onGenerationModeChange?: (isGenerating: boolean) => void;
 }
 
 // 간단한 파일 검증
@@ -66,36 +77,22 @@ const CircularProgress = ({ progress, size = 200 }: { progress: number; size?: n
   );
 };
 
-export default function MainPanel({ onGenerate, context }: MainPanelProps) {
+export default function MainPanel({ onGenerate, context, onAnimationStateChange, onGenerationModeChange }: MainPanelProps) {
   const [droppedFiles, setDroppedFiles] = useState<DroppedFile[]>([]);
   const [droppedKeywords, setDroppedKeywords] = useState<string[]>([]);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // 컨텍스트별 안내 메시지
-  const getContextMessage = () => {
-    switch (context.mode) {
-      case 'room':
-        return '이 Room에 이미지가 추가됩니다';
-      case 'history':
-        return '기존 세션에 이미지가 추가됩니다';
-      default:
-        return '새로운 세션이 생성됩니다';
-    }
-  };
 
   // 새로운 생성 훅 사용
   const {
     status,
     progress,
     error: generationError,
-    sessionId,
-    recordId,
     isGenerating,
     isSSEConnected,
+    animationState,
     generate,
     cancelGeneration,
-    reset
   } = useGeneration({
     context,
     onComplete: (result) => {
@@ -109,15 +106,45 @@ export default function MainPanel({ onGenerate, context }: MainPanelProps) {
       setDroppedFiles([]);
       setDroppedKeywords([]);
       setValidationErrors([]);
+
+      // 생성모드 변경 알림
+      onGenerationModeChange?.(false);
     },
     onError: (error) => {
       console.error('❌ Generation failed:', error);
       setValidationErrors([error]);
+      onGenerationModeChange?.(false);
     },
     onProgress: (step, progressValue) => {
       console.log(`📊 Progress: ${step} (${progressValue}%)`);
+    },
+
+    // 애니메이션 콜백들
+    onImageAnimationUpdate: (images) => {
+      console.log('🎬 Image animation updated:', images.length);
+    },
+    onStoryAnimationUpdate: (text) => {
+      console.log('✍️ Story animation updated:', text.length, 'characters');
+    },
+    onKeywordAnimationUpdate: (keywords) => {
+      console.log('🏷️ Keyword animation updated:', keywords.length);
+    },
+    onRecommendationShow: () => {
+      console.log('💡 Recommendation shown');
     }
   });
+
+  // 생성 상태 변경 시 상위 컴포넌트에 알림
+  React.useEffect(() => {
+    onGenerationModeChange?.(isGenerating);
+  }, [isGenerating]);
+
+  // 애니메이션 상태 변경 시 상위 컴포넌트에 전달
+  React.useEffect(() => {
+    if (animationState && onAnimationStateChange) {
+      onAnimationStateChange(animationState);
+    }
+  }, [animationState]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -256,12 +283,16 @@ export default function MainPanel({ onGenerate, context }: MainPanelProps) {
     setValidationErrors([]);
 
     try {
+      // 생성 시작 알림
+      onGenerationModeChange?.(true);
+
       await generate(droppedFiles, droppedKeywords);
     } catch (error) {
       console.error('Generate failed:', error);
       setValidationErrors([
         error instanceof Error ? error.message : '생성에 실패했습니다. 다시 시도해주세요.'
       ]);
+      onGenerationModeChange?.(false);
     }
   };
 
@@ -328,15 +359,6 @@ export default function MainPanel({ onGenerate, context }: MainPanelProps) {
             </ul>
           </div>
         )}
-
-        {/* 컨텍스트 안내 */}
-        {/* {context.mode !== 'new' && (
-          <div className="w-80 p-2 bg-blue-50 border border-blue-200 rounded mb-4">
-            <p className="text-sm text-blue-700 text-center">
-              🔗 {getContextMessage()}
-            </p>
-          </div>
-        )} */}
 
         {/* 원형 프로그레스 바 (생성 중일 때만 표시) */}
         {isGenerating && (

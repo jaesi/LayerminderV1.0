@@ -8,7 +8,7 @@ interface TopPanelProps {
   mode: 'brand' | 'generate' | 'details';
   selectedRowData?: {
     rowIndex: number;
-    images: Array<{ id: number; src: string; isPinned: boolean }>;
+    images: Array<{ id: number; src: string; isPinned: boolean, type?: 'output' | 'reference' | 'recommendation'; }>;
     keyword: string;
     startImageIndex?: number;
     story?: string;
@@ -16,12 +16,27 @@ interface TopPanelProps {
     recommendationImage?: string;
   } | null;
   onClose?: () => void;
+  // 애니메이션 상태
+  animationState?: {
+    animatedImages: string[];
+    animatedImageIds: string[];
+    imageAnimationComplete: boolean;
+    animatedStoryText: string;
+    storyAnimationComplete: boolean;
+    animatedKeywords: string[];
+    keywordAnimationComplete: boolean;
+    recommendationVisible: boolean;
+  };
+  // 생성 중인지 여부
+  isGenerating?: boolean; 
 }
 
 export default function TopPanel({ 
   mode, 
   selectedRowData, 
   onClose,
+  animationState,
+  isGenerating = false
 }: TopPanelProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(selectedRowData?.startImageIndex || 0);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -79,27 +94,63 @@ export default function TopPanel({
     </div>
   );
 
-  // Generate 모드 렌더링 (새로운 SSE 결과 표시)
+  // Generate 모드 렌더링 (애니메이션 지원)
   const renderGenerateMode = () => {
-    if (!selectedRowData) return null;
+    if (!selectedRowData && !animationState) return null;
 
-    const { images, keyword, story, generatedKeywords } = selectedRowData;
-    const outputImages = images.filter(img => img.type === 'output');
-    const currentImage = outputImages[currentImageIndex] || images[currentImageIndex];
+    // 애니메이션 상태에서 이미지 정보 가져오기
+    const animatedImages = animationState?.animatedImages || [];
+    const animatedImageIds = animationState?.animatedImageIds || [];
+    
+    // 현재 표시할 이미지들 (애니메이션 진행 중이면 애니메이션 상태, 아니면 완성된 데이터)
+    const displayImages = isGenerating && animatedImages.length > 0
+      ? animatedImages.map((url, index) => ({
+          id: Date.now() + index,
+          src: url,
+          isPinned: false,
+          type: 'output' as const,
+          imageId: animatedImageIds[index]
+        }))
+      : selectedRowData?.images.filter(img => img.type === 'output') || [];
+
+    // 현재 표시할 스토리 (애니메이션 진행 중이면 애니메이션 텍스트, 아니면 완성된 스토리)
+    const displayStory = isGenerating && animationState?.animatedStoryText
+      ? animationState.animatedStoryText
+      : selectedRowData?.story || '';
+
+    // 현재 표시할 키워드들 (애니메이션 진행 중이면 애니메이션 키워드들, 아니면 완성된 키워드들)
+    const displayKeywords = isGenerating && animationState && animationState.animatedKeywords.length > 0
+      ? animationState.animatedKeywords
+      : selectedRowData?.generatedKeywords || [];
+
+    // // 추천 이미지 표시 여부
+    // const showRecommendation = isGenerating 
+    //   ? animationState?.recommendationVisible || false
+    //   : !!selectedRowData?.recommendationImage;
+
+    const currentImage = displayImages[currentImageIndex] || displayImages[0];
+    const keyword = selectedRowData?.keyword || 'Generated';
 
     const nextImage = () => {
-      setCurrentImageIndex((prev) => (prev + 1) % outputImages.length);
+      if (displayImages.length > 1) {
+        setCurrentImageIndex((prev) => (prev + 1) % displayImages.length);
+      }
     };
 
     const prevImage = () => {
-      setCurrentImageIndex((prev) => (prev - 1 + outputImages.length) % outputImages.length);
+      if (displayImages.length > 1) {
+        setCurrentImageIndex((prev) => (prev - 1 + displayImages.length) % displayImages.length);
+      }
     };
 
     const handleImageClick = () => {
-      setIsExpanded(!isExpanded);
+      if (displayImages.length > 0) {
+        setIsExpanded(!isExpanded);
+      }
     };
 
-    if (isExpanded) {
+    // 확장 모드 렌더링
+    if (isExpanded && currentImage) {
       return (
         <div className="grid grid-cols-6 gap-2 relative" style={{ height: containerHeight }}>
           {/* 확장된 이미지 */}
@@ -119,7 +170,7 @@ export default function TopPanel({
             />
             
             {/* 네비게이션 버튼들 */}
-            {outputImages.length > 1 && (
+            {displayImages.length > 1 && (
               <>
                 <button 
                   className="absolute left-4 top-1/2 transform -translate-y-1/2 p-2 bg-white bg-opacity-75 hover:bg-opacity-100 rounded-full shadow-lg z-10"
@@ -155,7 +206,7 @@ export default function TopPanel({
               />
             </div>
             
-            {outputImages.length > 1 && (
+            {displayImages.length > 1 && (
               <>
                 <button 
                   className="absolute left-1 top-1/2 transform -translate-y-1/2 p-1 bg-white bg-opacity-75 hover:bg-opacity-100 rounded opacity-0 group-hover:opacity-100 transition-opacity"
@@ -173,37 +224,60 @@ export default function TopPanel({
             )}
           </div>
 
-          {/* 설명 영역 - 높이 맞춤 및 스크롤 */}
+          {/* 설명 영역 */}
           <div className="col-span-4 flex flex-col pl-4" style={{ height: containerHeight }}>
             <h2 className="text-lg font-light text-gray-600 leading-relaxed mb-4 flex-shrink-0">
               Generated Results - {keyword}
             </h2>
             
-            {/* 키워드 영역 */}
-            {generatedKeywords && generatedKeywords.length > 0 && (
+            {/* 키워드 영역 - 애니메이션 지원 */}
+            {displayKeywords.length > 0 && (
               <div className="mb-2 flex-shrink-0">
                 <div className="flex flex-wrap gap-2">
-                  {generatedKeywords.map((kw, index) => (
+                  {displayKeywords.map((kw, index) => (
                     <span 
                       key={index}
-                      className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded"
+                      className={`px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded transition-all duration-200 ${
+                        isGenerating ? 'animate-fade-in' : ''
+                      }`}
+                      style={{ 
+                        animationDelay: isGenerating ? `${index * 200}ms` : '0ms' 
+                      }}
                     >
                       {kw}
                     </span>
                   ))}
+                  {/* 키워드 로딩 중일 때 표시 */}
+                  {isGenerating && !animationState?.keywordAnimationComplete && (
+                    <div className="px-2 py-1 bg-gray-100 text-gray-400 text-xs rounded animate-pulse">
+                      ...
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
-            {/* 스토리 영역 - 스크롤 */}
+            {/* 스토리 영역 - 타이핑 애니메이션 지원 */}
             <div className="flex-1 overflow-y-auto text-sm text-gray-700 leading-relaxed pr-2">
-              {story && (
+              {displayStory ? (
                 <div className="whitespace-pre-wrap">
-                  {story}
+                  {displayStory}
+                  {/* 타이핑 중일 때 커서 표시 */}
+                  {isGenerating && !animationState?.storyAnimationComplete && (
+                    <span className="animate-pulse">|</span>
+                  )}
                 </div>
+              ) : (
+                // 스토리 로딩 중일 때 표시
+                isGenerating && (
+                  <div className="text-gray-400 animate-pulse">
+                    Generating story...
+                  </div>
+                )
               )}
               
-              {!story && (
+              {/* 기본 설명 (스토리가 없을 때) */}
+              {!displayStory && !isGenerating && (
                 <div>
                   <p className="mb-2">
                     These images have been generated based on your selected references and the &quot;{keyword}&quot; keyword. 
@@ -216,7 +290,7 @@ export default function TopPanel({
                     to create furniture concepts that bridge past and future.
                   </p>
                   <p>
-                    Total generated: {outputImages.length} variations
+                    Total generated: {displayImages.length} variations
                   </p>
                 </div>
               )}
@@ -244,72 +318,106 @@ export default function TopPanel({
           <X size={16} />
         </button>
 
-        {/* 이미지 영역 */}
-        <div className="col-span-2 relative group cursor-pointer" onClick={handleImageClick}>
-          <div className="aspect-square bg-gray-200 overflow-hidden">
-            <img 
-              src={currentImage.src} 
-              alt="" 
-              className="w-full h-full object-cover transition-transform group-hover:scale-105"
-            />
-          </div>
-          
-          {outputImages.length > 1 && (
-            <>
-              <button 
-                className="absolute left-1 top-1/2 transform -translate-y-1/2 p-1 bg-white bg-opacity-75 hover:bg-opacity-100 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={(e) => { e.stopPropagation(); prevImage(); }}
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <button 
-                className="absolute right-1 top-1/2 transform -translate-y-1/2 p-1 bg-white bg-opacity-75 hover:bg-opacity-100 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={(e) => { e.stopPropagation(); nextImage(); }}
-              >
-                <ChevronRight size={16} />
-              </button>
-            </>
-          )}
-          
-          {/* 이미지 카운터 */}
-          {outputImages.length > 1 && (
-            <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-black bg-opacity-50 text-white text-xs rounded">
-              {currentImageIndex + 1} / {outputImages.length}
+        {/* 이미지 영역 - 애니메이션 지원 */}
+        <div className="col-span-2 relative">
+          {displayImages.length > 0 && currentImage ? (
+            <div className="group cursor-pointer" onClick={handleImageClick}>
+              <div className="aspect-square bg-gray-200 overflow-hidden">
+                <img 
+                  src={currentImage.src} 
+                  alt="" 
+                  className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                />
+              </div>
+              
+              {displayImages.length > 1 && (
+                <>
+                  <button 
+                    className="absolute left-1 top-1/2 transform -translate-y-1/2 p-1 bg-white bg-opacity-75 hover:bg-opacity-100 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => { e.stopPropagation(); prevImage(); }}
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <button 
+                    className="absolute right-1 top-1/2 transform -translate-y-1/2 p-1 bg-white bg-opacity-75 hover:bg-opacity-100 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => { e.stopPropagation(); nextImage(); }}
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </>
+              )}
+              
+              {/* 이미지 카운터 */}
+              {displayImages.length > 1 && (
+                <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-black bg-opacity-50 text-white text-xs rounded">
+                  {currentImageIndex + 1} / {displayImages.length}
+                </div>
+              )}
+            </div>
+          ) : (
+            // 이미지 로딩 중일 때 표시
+            <div className="aspect-square bg-gray-100 overflow-hidden flex items-center justify-center">
+              <div className="text-gray-400 animate-pulse">
+                {isGenerating ? 'Generating images...' : 'No images'}
+              </div>
             </div>
           )}
         </div>
 
-        {/* 설명 영역 - 높이 맞춤 및 스크롤 */}
+        {/* 설명 영역 */}
         <div className="col-span-4 flex flex-col pl-4" style={{ height: containerHeight }}>
           <h2 className="text-lg font-light text-gray-600 leading-relaxed mb-4 flex-shrink-0">
             Generated Results - {keyword}
           </h2>
           
-          {/* 키워드 영역 */}
-          {generatedKeywords && generatedKeywords.length > 0 && (
+          {/* 키워드 영역 - 애니메이션 지원 */}
+          {displayKeywords.length > 0 && (
             <div className="mb-2 flex-shrink-0">
               <div className="flex flex-wrap gap-2">
-                {generatedKeywords.map((kw, index) => (
+                {displayKeywords.map((kw, index) => (
                   <span 
                     key={index}
-                    className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded"
+                    className={`px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded transition-all duration-200 ${
+                      isGenerating ? 'animate-fade-in' : ''
+                    }`}
+                    style={{ 
+                      animationDelay: isGenerating ? `${index * 200}ms` : '0ms' 
+                    }}
                   >
                     {kw}
                   </span>
                 ))}
+                {/* 키워드 로딩 중일 때 표시 */}
+                {isGenerating && !animationState?.keywordAnimationComplete && (
+                  <div className="px-2 py-1 bg-gray-100 text-gray-400 text-xs rounded animate-pulse">
+                    ...
+                  </div>
+                )}
               </div>
             </div>
           )}
 
-          {/* 스토리 영역 - 스크롤 */}
+          {/* 스토리 영역 - 타이핑 애니메이션 지원 */}
           <div className="flex-1 overflow-y-auto text-sm text-gray-700 leading-relaxed pr-2">
-            {story && (
+            {displayStory ? (
               <div className="whitespace-pre-wrap">
-                {story}
+                {displayStory}
+                {/* 타이핑 중일 때 커서 표시 */}
+                {isGenerating && !animationState?.storyAnimationComplete && (
+                  <span className="animate-pulse">|</span>
+                )}
               </div>
+            ) : (
+              // 스토리 로딩 중일 때 표시
+              isGenerating && (
+                <div className="text-gray-400 animate-pulse">
+                  Generating story...
+                </div>
+              )
             )}
             
-            {!story && (
+            {/* 기본 설명 (스토리가 없을 때) */}
+            {!displayStory && !isGenerating && (
               <div>
                 <p className="mb-2">
                   These images have been generated based on your selected references and the &quot;{keyword}&quot; keyword. 
@@ -322,7 +430,7 @@ export default function TopPanel({
                   to create furniture concepts that bridge past and future.
                 </p>
                 <p>
-                  Total generated: {outputImages.length} variations
+                  Total generated: {displayImages.length} variations
                 </p>
               </div>
             )}
@@ -332,7 +440,7 @@ export default function TopPanel({
     );
   };
 
-  // Details 모드 렌더링 (기존과 동일하지만 스크롤 추가)
+  // Details 모드 렌더링
   const renderDetailsMode = () => {
     if (!selectedRowData) return null;
 
@@ -562,6 +670,25 @@ export default function TopPanel({
       {mode === 'brand' && renderBrandMode()}
       {mode === 'generate' && renderGenerateMode()}
       {mode === 'details' && renderDetailsMode()}
+
+      {/* Tailwind CSS 애니메이션 클래스 추가 */}
+      <style jsx global>{`
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        .animate-fade-in {
+          animation: fade-in 0.3s ease-out forwards;
+        }
+      `}</style>
+
     </div>
   );
 }

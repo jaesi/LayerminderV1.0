@@ -17,20 +17,67 @@ import {
 } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 
+// TopPanel 애니메이션 상태 
+interface AnimationState {
+  // 이미지 애니메이션
+  animatedImages: string[];
+  animatedImageIds: string[];
+  imageAnimationComplete: boolean;
+
+  // 스토리 애니메이션
+  animatedStoryText: string; // 현재까지 타이핑된 텍스트
+  storyAnimationComplete: boolean;
+  
+  // 키워드 애니메이션
+  animatedKeywords: string[]; // 현재까지 애니메이션으로 표시된 키워드들
+  keywordAnimationComplete: boolean;
+  
+  // 추천 이미지
+  recommendationVisible: boolean;
+}
+
+// GenerationState
+interface ExtendedGenerationState extends GenerationState {
+  animation: AnimationState;
+}
+
 interface UseGenerationOptions {
   context?: GenerationContext; 
   onComplete?: (result: GeneratedRow) => void;
   onError?: (error: string) => void;
   onProgress?: (step: string, progress: number) => void;
+  onImageAnimationUpdate?: (images: string[], imageIds: string[]) => void; // 이미지 애니메이션 콜백
+  onStoryAnimationUpdate?: (text: string) => void; // 스토리 애니메이션 콜백
+  onKeywordAnimationUpdate?: (keywords: string[]) => void; // 키워드 애니메이션 콜백
+  onRecommendationShow?: () => void; // 추천 이미지 표시 콜백
 }
 
 export function useGeneration(options: UseGenerationOptions = {}) {
   const { user } = useAuth();
-  const { onComplete, onError, onProgress, context } = options;
+  const { 
+    onComplete, 
+    onError, 
+    onProgress, 
+    context,
+    onImageAnimationUpdate,
+    onStoryAnimationUpdate,
+    onKeywordAnimationUpdate,
+    onRecommendationShow 
+  } = options;
 
-  const [state, setState] = useState<GenerationState>({
+  const [state, setState] = useState<ExtendedGenerationState>({
     status: 'idle',
-    progress: 0
+    progress: 0,
+    animation: {
+      animatedImages: [],
+      animatedImageIds: [],
+      imageAnimationComplete: false,
+      animatedStoryText: '',
+      storyAnimationComplete: false,
+      animatedKeywords: [],
+      keywordAnimationComplete: false,
+      recommendationVisible: false
+    }
   });
 
   const sseRef = useRef<EventSource | null>(null);
@@ -42,6 +89,19 @@ export function useGeneration(options: UseGenerationOptions = {}) {
     context?: GenerationContext;
   } | null>(null);
 
+  // 애니메이션 타이머들을 관리하는 ref
+  const animationTimersRef = useRef<{
+    imageTimers: NodeJS.Timeout[];
+    storyTimer: NodeJS.Timeout | null;
+    keywordTimers: NodeJS.Timeout[];
+    recommendationTimer: NodeJS.Timeout | null;
+  }>({
+    imageTimers: [],
+    storyTimer: null,
+    keywordTimers: [],
+    recommendationTimer: null
+  });
+
   // 생성 결과를 실시간으로 저장하는 ref
   const generationResultRef = useRef<{
     images?: string[];
@@ -51,6 +111,31 @@ export function useGeneration(options: UseGenerationOptions = {}) {
     recommendation?: string;
   }>({});
 
+  // 애니메이션 타이머들 정리
+  const clearAnimationTimers = useCallback(() => {
+    const timers = animationTimersRef.current;
+    
+    // 이미지 타이머들 정리
+    timers.imageTimers.forEach(timer => clearTimeout(timer));
+    timers.imageTimers = [];
+    
+    // 스토리 타이머 정리
+    if (timers.storyTimer) {
+      clearTimeout(timers.storyTimer);
+      timers.storyTimer = null;
+    }
+    
+    // 키워드 타이머들 정리
+    timers.keywordTimers.forEach(timer => clearTimeout(timer));
+    timers.keywordTimers = [];
+    
+    // 추천 타이머 정리
+    if (timers.recommendationTimer) {
+      clearTimeout(timers.recommendationTimer);
+      timers.recommendationTimer = null;
+    }
+  }, []);
+
   // SSE 연결 정리
   const cleanup = useCallback(() => {
     if (sseRef.current) {
@@ -59,6 +144,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
     }
     currentGenerationRef.current = null;
     generationResultRef.current = {}; // 결과도 초기화
+    clearAnimationTimers();
   }, []);
 
   // 컴포넌트 언마운트 시 정리
@@ -69,7 +155,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
   }, [cleanup]);
 
   // 상태 업데이트 헬퍼
-  const updateState = useCallback((updates: Partial<GenerationState>) => {
+  const updateState = useCallback((updates: Partial<ExtendedGenerationState>) => {
     setState(prev => {
       const newState = { ...prev, ...updates };
       
@@ -81,6 +167,128 @@ export function useGeneration(options: UseGenerationOptions = {}) {
       return newState;
     });
   }, [onProgress]);
+
+  // 애니메이션 상태만 업데이트하는 헬퍼
+  const updateAnimationState = useCallback((updates: Partial<AnimationState> | ((prev: AnimationState) => Partial<AnimationState>)) => {
+    setState(prev => ({
+      ...prev,
+      animation: { 
+        ...prev.animation, 
+        ...(typeof updates === 'function' ? updates(prev.animation) : updates)
+      }
+    }));
+  }, []);
+
+  // 이미지 순차 애니메이션 시작
+  const startImageAnimation = useCallback((images: string[], imageIds: string[]) => {
+    console.log('🎬 Starting image animation with', images.length, 'images');
+    
+    // 애니메이션 상태 초기화
+    updateAnimationState({
+      animatedImages: [],
+      animatedImageIds: [],
+      imageAnimationComplete: false
+    });
+
+    // 각 이미지를 0.3초씩 딜레이하며 순차 표시
+    images.forEach((imageUrl, index) => {
+      const timer = setTimeout(() => {
+        updateAnimationState(prev => {
+          const newAnimatedImages = [...prev.animatedImages, imageUrl];
+          const newAnimatedImageIds = [...prev.animatedImageIds, imageIds[index]];
+          
+          console.log(`🖼️ Image ${index + 1}/${images.length} animated`);
+          
+          // 콜백 호출
+          onImageAnimationUpdate?.(newAnimatedImages, newAnimatedImageIds);
+          
+          return {
+            ...prev,
+            animatedImages: newAnimatedImages,
+            animatedImageIds: newAnimatedImageIds,
+            imageAnimationComplete: index === images.length - 1
+          };
+        });
+      }, index * 300); // 0.3초씩 딜레이
+      
+      animationTimersRef.current.imageTimers.push(timer);
+    });
+  }, [updateAnimationState, onImageAnimationUpdate]);
+
+  // 스토리 타이핑 애니메이션 시작
+  const startStoryAnimation = useCallback((fullStory: string) => {
+    console.log('✍️ Starting story typing animation');
+    
+    updateAnimationState({
+      animatedStoryText: '',
+      storyAnimationComplete: false
+    });
+
+    // 단어 단위로 타이핑 효과
+    const words = fullStory.split(' ');
+    let currentWordIndex = 0;
+    
+    const typeNextWord = () => {
+      if (currentWordIndex < words.length) {
+        const currentText = words.slice(0, currentWordIndex + 1).join(' ');
+        
+        updateAnimationState(prev => ({
+          ...prev,
+          animatedStoryText: currentText,
+          storyAnimationComplete: currentWordIndex === words.length - 1
+        }));
+        
+        onStoryAnimationUpdate?.(currentText);
+        
+        currentWordIndex++;
+        animationTimersRef.current.storyTimer = setTimeout(typeNextWord, 50); // 50ms마다 단어 추가
+      }
+    };
+    
+    typeNextWord();
+  }, [updateAnimationState, onStoryAnimationUpdate]);
+
+  // 키워드 순차 애니메이션 시작
+  const startKeywordAnimation = useCallback((keywords: string[]) => {
+    console.log('🏷️ Starting keyword animation with', keywords.length, 'keywords');
+    
+    updateAnimationState({
+      animatedKeywords: [],
+      keywordAnimationComplete: false
+    });
+
+    // 각 키워드를 0.3초씩 딜레이하며 순차 표시
+    keywords.forEach((keyword, index) => {
+      const timer = setTimeout(() => {
+        updateAnimationState(prev => {
+          const newAnimatedKeywords = [...prev.animatedKeywords, keyword];
+          
+          console.log(`🔖 Keyword ${index + 1}/${keywords.length} animated: ${keyword}`);
+          
+          onKeywordAnimationUpdate?.(newAnimatedKeywords);
+          
+          return {
+            ...prev,
+            animatedKeywords: newAnimatedKeywords,
+            keywordAnimationComplete: index === keywords.length - 1
+          };
+        });
+      }, index * 300); // 0.3초씩 딜레이
+      
+      animationTimersRef.current.keywordTimers.push(timer);
+    });
+  }, [updateAnimationState, onKeywordAnimationUpdate]);
+
+  // 추천 이미지 표시
+  const showRecommendation = useCallback(() => {
+    console.log('💡 Showing recommendation');
+    
+    updateAnimationState({
+      recommendationVisible: true
+    });
+    
+    onRecommendationShow?.();
+  }, [updateAnimationState, onRecommendationShow]);
 
   // 에러 처리
   const handleError = useCallback((error: string) => {
@@ -94,55 +302,72 @@ export function useGeneration(options: UseGenerationOptions = {}) {
     onError?.(error);
   }, [cleanup, updateState, onError]);
 
-  // SSE 이벤트 처리
+  // SSE 이벤트 처리 (기존 로직 + 애니메이션 트리거)
   const handleSSEEvent = useCallback((eventData: ProcessedSSEEvent) => {
     const current = currentGenerationRef.current;
     if (!current) return;
 
     switch (eventData.type) {
       case 'images_generated':
-        console.log('📸 Images received:', eventData.data.image_urls?.length || 0);
-        console.log('🔍 ImageIds received:', eventData.data.image_ids);
-        // ref에 이미지 저장
+        console.log('📸 Images received, starting animation...');
+        
+        // ref에 실제 데이터 저장
         generationResultRef.current.images = eventData.data.image_urls || [];
         generationResultRef.current.imageIds = eventData.data.image_ids || [];
-
-        console.log('🔍 Stored in ref - images:', generationResultRef.current.images);
-  console.log('🔍 Stored in ref - imageIds:', generationResultRef.current.imageIds);
 
         updateState({
           generatedImages: eventData.data.image_urls || [],
           currentStep: 'Generating story...',
-          progress: 30
+          progress: 50
         });
+
+        // 이미지 애니메이션 시작
+        startImageAnimation(
+          eventData.data.image_urls || [], 
+          eventData.data.image_ids || []
+        );
         break;
 
       case 'story_generated':
-        console.log('📝 Story received');
-        // ref에 스토리 저장
+        console.log('📝 Story received, starting typing animation...');
+        
         generationResultRef.current.story = eventData.data.story;
+        
         updateState({
           generatedStory: eventData.data.story,
           currentStep: 'Extracting keywords...',
           progress: 60
         });
+
+        // 스토리 타이핑 애니메이션 시작
+        if (eventData.data.story) {
+          startStoryAnimation(eventData.data.story);
+        }
         break;
 
       case 'keywords_generated':
-        console.log('🏷️ Keywords received:', eventData.data.keywords?.length || 0);
-        // ref에 키워드 저장
+        console.log('🏷️ Keywords received, starting keyword animation...');
+        
         generationResultRef.current.keywords = eventData.data.keywords || [];
+        
         updateState({
           generatedKeywords: eventData.data.keywords || [],
           currentStep: 'Generating recommendations...',
           progress: 80
         });
+
+        // 키워드 애니메이션 시작
+        startKeywordAnimation(eventData.data.keywords || []);
         break;
 
       case 'recommendation_ready':
         console.log('💡 Recommendation received');
-        // ref에 추천 이미지 저장
+        
         generationResultRef.current.recommendation = eventData.data.recommendationUrl;
+
+        // 추천 이미지 표시
+        showRecommendation();
+        
         updateState({
           recommendationImage: eventData.data.recommendationUrl,
           status: 'completed',
@@ -150,26 +375,22 @@ export function useGeneration(options: UseGenerationOptions = {}) {
           progress: 100
         });
 
-        // ref의 데이터를 사용해서 최종 결과 생성
+        // 최종 결과 생성 및 완료 처리
         const resultData = generationResultRef.current;
-        console.log('🔍 Creating final result with imageIds:', resultData.imageIds);
         const result: GeneratedRow = {
           id: current.recordId,
           sessionId: current.sessionId,
           images: [
-            // ref에서 생성된 이미지들 가져오기
             ...(resultData.images || []).map((url, index) => {
-              const backendImageId = resultData.imageIds?.[index]; // 백엔드에서 받은 실제 imageId
-              console.log(`🔍 Image ${index}: url=${url}, backendId=${backendImageId}`);
+              const backendImageId = resultData.imageIds?.[index];
               return {
                 id: Date.now() + index + 1,
                 src: url,
                 isPinned: false,
                 type: 'output' as const,
-                imageId: backendImageId || `fallback_${current.recordId}_${index}`, // ✅ 백엔드 ID 우선 사용
+                imageId: backendImageId || `fallback_${current.recordId}_${index}`,
               };
             }),
-            // 첫 번째 입력 이미지를 참조로 사용
             {
               id: Date.now() + 1000,
               src: current.inputImages[0] || '',
@@ -190,23 +411,12 @@ export function useGeneration(options: UseGenerationOptions = {}) {
           }
         };
 
-        console.log('🎉 Final result created with images:', result.images.length);
-        console.log('🖼️ Generated images count:', resultData.images?.length || 0);
-
-        // Room 모드인 경우 자동으로 Room에 이미지 추가
+        // Room 모드 처리
         if (current.context?.mode === 'room' && current.context.targetId) {
           const roomId = current.context.targetId;
-          console.log('🏠 Auto-adding images to room...');
-          
-          // 생성된 이미지들을 Room에 추가
           const addPromises = (resultData.images || []).map(async (imageUrl, index) => {
             const imageId = resultData.imageIds?.[index];
-
-            if (!imageId) {
-              console.warn(`⚠️ No backend imageId for index ${index}, skipping...`);
-              return null;
-            }
-
+            if (!imageId) return null;
             return addImageToRoom(roomId, {
               image_id: imageId,
               note: `Generated: ${current.keyword}`,
@@ -215,12 +425,8 @@ export function useGeneration(options: UseGenerationOptions = {}) {
           });
           
           Promise.all(addPromises)
-            .then(() => {
-              console.log('✅ Images automatically added to room');
-            })
-            .catch(err => {
-              console.error('❌ Failed to add images to room:', err);
-            });
+            .then(() => console.log('✅ Images automatically added to room'))
+            .catch(err => console.error('❌ Failed to add images to room:', err));
         }
 
         onComplete?.(result);
@@ -239,7 +445,16 @@ export function useGeneration(options: UseGenerationOptions = {}) {
         handleError(eventData.data.error || 'Unknown error occurred');
         break;
     }
-  }, [updateState, onComplete, user?.id, handleError]);
+  }, [
+    updateState, 
+    startImageAnimation, 
+    startStoryAnimation, 
+    startKeywordAnimation, 
+    showRecommendation, 
+    onComplete, 
+    user?.id, 
+    handleError
+  ]);
 
   // 메인 생성 함수
   const generate = useCallback(async (files: DroppedFile[], keywords: string[]) => {
@@ -386,7 +601,17 @@ export function useGeneration(options: UseGenerationOptions = {}) {
       generatedImages: undefined,
       generatedStory: undefined,
       generatedKeywords: undefined,
-      recommendationImage: undefined
+      recommendationImage: undefined,
+      animation: {
+        animatedImages: [],
+        animatedImageIds: [],
+        imageAnimationComplete: false,
+        animatedStoryText: '',
+        storyAnimationComplete: false,
+        animatedKeywords: [],
+        keywordAnimationComplete: false,
+        recommendationVisible: false
+      }
     });
   }, [cleanup, updateState]);
 
@@ -395,7 +620,17 @@ export function useGeneration(options: UseGenerationOptions = {}) {
     cleanup();
     setState({
       status: 'idle',
-      progress: 0
+      progress: 0,
+      animation: {
+        animatedImages: [],
+        animatedImageIds: [],
+        imageAnimationComplete: false,
+        animatedStoryText: '',
+        storyAnimationComplete: false,
+        animatedKeywords: [],
+        keywordAnimationComplete: false,
+        recommendationVisible: false
+      }
     });
   }, [cleanup]);
 
@@ -403,6 +638,8 @@ export function useGeneration(options: UseGenerationOptions = {}) {
     // 상태
     ...state,
     isGenerating: state.status !== 'idle' && state.status !== 'completed' && state.status !== 'error',
+
+    animationState: state.animation,
     
     // 액션
     generate,

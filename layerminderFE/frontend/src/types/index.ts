@@ -23,6 +23,45 @@ export interface HistorySessionsResponse {
   sessions: HistorySession[];
 }
 
+// 히스토리 이미지 레코드 타입
+export interface HistoryImageRecord {
+  user_id: string;
+  record_id: string;
+  keywords: string[];
+  reference_image_url: string;
+  gen_image_1: string;
+  gen_image_2: string;
+  gen_image_3: string;
+  gen_image_4: string;
+  created_day: string;
+  created_at: string;
+}
+
+// 히스토리 이미지 목록 응답 타입
+export type HistoryImagesResponse = HistoryImageRecord[];
+
+// Gallery에서 사용할 처리된 히스토리 이미지 타입
+export interface ProcessedHistoryImage {
+  id: number;
+  src: string;
+  isPinned: boolean;
+  type: 'output' | 'reference';
+  imageId?: string;
+  fileKey?: string;
+  roomImageId?: string;
+}
+
+// Gallery에서 사용할 처리된 히스토리 행 타입
+export interface ProcessedHistoryRow {
+  recordId: string;
+  keyword: string;
+  keywords: string[];
+  images: ProcessedHistoryImage[];
+  createdAt: string;
+  createdDay: string;
+}
+
+
 // ===== 생성 관련 타입들 =====
 export interface GenerateRequest {
   session_id: string;

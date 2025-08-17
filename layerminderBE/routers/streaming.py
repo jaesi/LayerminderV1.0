@@ -85,7 +85,7 @@ async def stream_generation(record_id: str):
                     return
                 if row.get("story_status") == "error":
                     yield sse_event("generation_failed", {"reason": "stage_failed", "stage": "story"})
-                    retuen
+                    return
                 if row.get("keywords_status") == "error":
                     yield sse_event("generation_failed", {"reason":"stage_failed", "stage": "keywords"})
                     return
