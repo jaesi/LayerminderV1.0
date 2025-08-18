@@ -87,7 +87,11 @@ export default function Gallery({
 
       // 히스토리 API에서 가져온 데이터 우선 표시
       if (historyImages.length > 0) {
-        return historyImages.map((historyRow, index) => {
+        // 최신순으로 정렬
+        const sortedHistoryImages = [...historyImages].sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+        return sortedHistoryImages.map((historyRow, index) => {
           const items = [
             // 생성된 이미지 4개
             ...historyRow.images.filter(img => img.type === 'output').map(img => ({ 
