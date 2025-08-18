@@ -122,6 +122,8 @@ export default function Dashboard() {
       setHistoryImagesLoading(true);
       try {
         const historyData = await getUserHistoryImages();
+        console.log('🔍 [DEBUG] API에서 받은 원본 historyData:', historyData);
+
         if (historyData) {
           // 백엔드 데이터를 프론트엔드 형식으로 변환
           const processedRows: ProcessedHistoryRow[] = historyData.map((record, index) => {
@@ -131,35 +133,35 @@ export default function Dashboard() {
                 src: record.gen_image_1,
                 isPinned: false,
                 type: 'output' as const,
-                imageId: `${record.record_id}_gen1`
+                imageId: record.gen_image_id_1
               },
               {
                 id: Date.now() + index * 10 + 2,
                 src: record.gen_image_2,
                 isPinned: false,
                 type: 'output' as const,
-                imageId: `${record.record_id}_gen2`
+                imageId: record.gen_image_id_2
               },
               {
                 id: Date.now() + index * 10 + 3,
                 src: record.gen_image_3,
                 isPinned: false,
                 type: 'output' as const,
-                imageId: `${record.record_id}_gen3`
+                imageId: record.gen_image_id_3
               },
               {
                 id: Date.now() + index * 10 + 4,
                 src: record.gen_image_4,
                 isPinned: false,
                 type: 'output' as const,
-                imageId: `${record.record_id}_gen4`
+                imageId: record.gen_image_id_4
               },
               {
                 id: Date.now() + index * 10 + 5,
                 src: record.reference_image_url,
                 isPinned: false,
-                type: 'reference' as const,
-                imageId: `${record.record_id}_ref`
+                type: 'recommendation' as const,
+                imageId: record.reference_image_id,
               }
             ];
 
@@ -293,6 +295,7 @@ export default function Dashboard() {
   };
 
   const handleTogglePin = async (imageId: number, roomId?: string, createNew?: boolean) => {
+
     // createNew가 true이면 새 room 생성
     if (createNew) {
       handleCreateRoom();
@@ -332,22 +335,34 @@ export default function Dashboard() {
         // 이미지 정보 찾기
         let imageData: {imageId: string, url: string; note: string} | null = null;
 
+        // GeneratedRows에서 찾기
         for (const row of generatedRows) {
           const foundImage = row.images.find(img => img.id === imageId);
           if (foundImage) {
-            
-                console.log('🔍 Found image for pinning:');
-                console.log('  - Frontend ID:', foundImage.id);
-                console.log('  - Backend ImageID:', foundImage.imageId);
-                console.log('  - URL:', foundImage.src);
-                console.log('  - Type:', typeof foundImage.imageId);
-  
             imageData = {
               imageId: foundImage.imageId || `fallback_${uuidv4()}`,
               url: foundImage.src,
               note: `Generated from: ${row.keyword || 'Unknown'}`
             };
             break;
+          }
+        }
+
+        // History images에서 찾기
+        if (!imageData && historyImages.length > 0) {
+          for (const historyRow of historyImages) {
+            const foundImage = historyRow.images.find(img => {
+              return img.id === imageId;
+            });
+            
+            if (foundImage) {
+              imageData = {
+                imageId: foundImage.imageId || `fallback_${uuidv4()}`,
+                url: foundImage.src,
+                note: `History: ${historyRow.keyword || 'Unknown'}`
+              };
+              break;
+            }
           }
         }
 

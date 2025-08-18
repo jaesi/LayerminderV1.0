@@ -50,7 +50,7 @@ export interface ProcessedHistoryImage {
   id: number;
   src: string;
   isPinned: boolean;
-  type: 'output' | 'reference';
+  type: 'output' | 'recommendation';
   imageId?: string;
   fileKey?: string;
   roomImageId?: string;

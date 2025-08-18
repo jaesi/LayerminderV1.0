@@ -99,8 +99,8 @@ export default function Gallery({
               data: img
             })),
             // 레퍼런스 이미지 1개
-            ...historyRow.images.filter(img => img.type === 'reference').map(img => ({ 
-              type: 'reference' as const, 
+            ...historyRow.images.filter(img => img.type === 'recommendation').map(img => ({ 
+              type: 'recommendation' as const, 
               data: img
             })),
             // 키워드
@@ -235,6 +235,7 @@ export default function Gallery({
   };
 
   const handlePinClick = (e: React.MouseEvent, imageId: number) => {
+    console.log('🔥 [DEBUG] Pin button clicked!', { imageId });
     e.stopPropagation();
   
     const pinButton = e.currentTarget as HTMLElement;
@@ -287,9 +288,12 @@ export default function Gallery({
     
     setPinModalImageId(imageId);
     setRoomSearchTerm('');
+
+    console.log('✅ [DEBUG] Pin modal state updated');
   };
 
   const handleRoomSelect = (roomId: string) => {
+    console.log('🎯 [DEBUG] Room selected!', { roomId, pinModalImageId });
     if (pinModalImageId !== null) {
       onTogglePin(pinModalImageId, roomId);
       setPinModalImageId(null);
