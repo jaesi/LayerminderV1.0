@@ -28,6 +28,7 @@ class HistorySession(BaseModel):
     user_id: str
     created_at: str
 
+
 # Image meta data upload
 class ImageMetadataRequest(BaseModel):
     file_key: str
@@ -38,6 +39,19 @@ class ImageMetadataResponse(BaseModel):
     url: HttpUrl
     type: str
     created_at: datetime
+
+# ImagesRecordInfo
+class ImageItem(BaseModel):
+    seq: int
+    id: str 
+    url: str
+
+class ImageRecordInfoOut(BaseModel):
+    record_id: UUID
+    story: Optional[str] = None
+    keywords: list[str] = []
+    reference_iamge_url: Optional[str] = None
+    images: List[ImageItem] = []
 
 # Room
 class RoomCreate(BaseModel):
