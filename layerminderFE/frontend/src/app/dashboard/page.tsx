@@ -549,74 +549,74 @@ export default function Dashboard() {
 
     setAnimationState(newAnimationState);
 
-    // 생성 중이고 History 모드일 때만 Gallery에 실시간 업데이트
-    if (isGenerating && currentGeneratingRowId && viewMode === 'history') {
+    // // 생성 중이고 History 모드일 때만 Gallery에 실시간 업데이트
+    // if (isGenerating && currentGeneratingRowId && viewMode === 'history') {
       
-      // 1. 이미지가 새로 추가되었을 때 - Gallery에 즉시 반영
-      if (newAnimationState.animatedImages.length > 0) {
-        const images = newAnimationState.animatedImages.map((url, index) => ({
-          id: Date.now() + index + 1000, // Gallery용 고유 ID
-          src: url,
-          isPinned: false,
-          type: 'output' as const,
-          imageId: newAnimationState.animatedImageIds[index] || `temp_${index}`
-        }));
+    //   // 1. 이미지가 새로 추가되었을 때 - Gallery에 즉시 반영
+    //   if (newAnimationState.animatedImages.length > 0) {
+    //     const images = newAnimationState.animatedImages.map((url, index) => ({
+    //       id: Date.now() + index + 1000, // Gallery용 고유 ID
+    //       src: url,
+    //       isPinned: false,
+    //       type: 'output' as const,
+    //       imageId: newAnimationState.animatedImageIds[index] || `temp_${index}`
+    //     }));
 
-        // 부분 행 생성 또는 업데이트
-        const partialRow: GeneratedRow = {
-          id: currentGeneratingRowId,
-          sessionId: userHistorySession?.session_id || 'temp_session',
-          images,
-          keyword: 'Generating...', // 임시 키워드
-          story: newAnimationState.animatedStoryText || undefined,
-          generatedKeywords: newAnimationState.animatedKeywords.length > 0 ? newAnimationState.animatedKeywords : undefined,
-          recommendationImage: newAnimationState.recommendationVisible ? 'generating' : undefined,
-          createdAt: new Date(),
-          status: 'processing',
-          metadata: {
-            inputImages: [],
-            generationTime: Date.now(),
-            generatedBy: user?.id || 'guest'
-          }
-        };
+    //     // 부분 행 생성 또는 업데이트
+    //     const partialRow: GeneratedRow = {
+    //       id: currentGeneratingRowId,
+    //       sessionId: userHistorySession?.session_id || 'temp_session',
+    //       images,
+    //       keyword: 'Generating...', // 임시 키워드
+    //       story: newAnimationState.animatedStoryText || undefined,
+    //       generatedKeywords: newAnimationState.animatedKeywords.length > 0 ? newAnimationState.animatedKeywords : undefined,
+    //       recommendationImage: newAnimationState.recommendationVisible ? 'generating' : undefined,
+    //       createdAt: new Date(),
+    //       status: 'processing',
+    //       metadata: {
+    //         inputImages: [],
+    //         generationTime: Date.now(),
+    //         generatedBy: user?.id || 'guest'
+    //       }
+    //     };
 
-        setGeneratedRows(prev => {
-          const existingIndex = prev.findIndex(row => row.id === currentGeneratingRowId);
-          if (existingIndex >= 0) {
-            // 기존 행 업데이트
-            const updated = [...prev];
-            updated[existingIndex] = {
-              ...updated[existingIndex],
-              images,
-              story: newAnimationState.animatedStoryText || updated[existingIndex].story,
-              generatedKeywords: newAnimationState.animatedKeywords.length > 0 
-                ? newAnimationState.animatedKeywords 
-                : updated[existingIndex].generatedKeywords,
-              recommendationImage: newAnimationState.recommendationVisible 
-                ? 'generating' 
-                : updated[existingIndex].recommendationImage
-            };
-            console.log('📝 Updated existing generating row in Gallery');
-            return updated;
-          } else {
-            // 새로운 행 추가
-            console.log('➕ Added new generating row to Gallery');
-            return [partialRow, ...prev];
-          }
-        });
+    //     setGeneratedRows(prev => {
+    //       const existingIndex = prev.findIndex(row => row.id === currentGeneratingRowId);
+    //       if (existingIndex >= 0) {
+    //         // 기존 행 업데이트
+    //         const updated = [...prev];
+    //         updated[existingIndex] = {
+    //           ...updated[existingIndex],
+    //           images,
+    //           story: newAnimationState.animatedStoryText || updated[existingIndex].story,
+    //           generatedKeywords: newAnimationState.animatedKeywords.length > 0 
+    //             ? newAnimationState.animatedKeywords 
+    //             : updated[existingIndex].generatedKeywords,
+    //           recommendationImage: newAnimationState.recommendationVisible 
+    //             ? 'generating' 
+    //             : updated[existingIndex].recommendationImage
+    //         };
+    //         console.log('📝 Updated existing generating row in Gallery');
+    //         return updated;
+    //       } else {
+    //         // 새로운 행 추가
+    //         console.log('➕ Added new generating row to Gallery');
+    //         return [partialRow, ...prev];
+    //       }
+    //     });
 
-        // TopPanel도 실시간 업데이트
-        setSelectedRowData({
-          rowIndex: 0,
-          images,
-          keyword: 'Generating...',
-          startImageIndex: 0,
-          story: newAnimationState.animatedStoryText || undefined,
-          generatedKeywords: newAnimationState.animatedKeywords.length > 0 ? newAnimationState.animatedKeywords : undefined,
-          recommendationImage: newAnimationState.recommendationVisible ? 'generating' : undefined
-        });
-      }
-    }
+    //     // TopPanel도 실시간 업데이트
+    //     setSelectedRowData({
+    //       rowIndex: 0,
+    //       images,
+    //       keyword: 'Generating...',
+    //       startImageIndex: 0,
+    //       story: newAnimationState.animatedStoryText || undefined,
+    //       generatedKeywords: newAnimationState.animatedKeywords.length > 0 ? newAnimationState.animatedKeywords : undefined,
+    //       recommendationImage: newAnimationState.recommendationVisible ? 'generating' : undefined
+    //     });
+    //   }
+    // }
 
     
   };
