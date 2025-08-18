@@ -28,11 +28,16 @@ export interface HistoryImageRecord {
   user_id: string;
   record_id: string;
   keywords: string[];
+  reference_image_id: string;
   reference_image_url: string;
   gen_image_1: string;
   gen_image_2: string;
   gen_image_3: string;
   gen_image_4: string;
+  gen_image_id_1: string;
+  gen_image_id_2: string;
+  gen_image_id_3: string;
+  gen_image_id_4: string;
   created_day: string;
   created_at: string;
 }
@@ -45,7 +50,7 @@ export interface ProcessedHistoryImage {
   id: number;
   src: string;
   isPinned: boolean;
-  type: 'output' | 'reference';
+  type: 'output' | 'recommendation';
   imageId?: string;
   fileKey?: string;
   roomImageId?: string;

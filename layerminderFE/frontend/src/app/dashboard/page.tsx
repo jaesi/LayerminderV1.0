@@ -122,6 +122,8 @@ export default function Dashboard() {
       setHistoryImagesLoading(true);
       try {
         const historyData = await getUserHistoryImages();
+        console.log('🔍 [DEBUG] API에서 받은 원본 historyData:', historyData);
+
         if (historyData) {
           // 백엔드 데이터를 프론트엔드 형식으로 변환
           const processedRows: ProcessedHistoryRow[] = historyData.map((record, index) => {
@@ -131,35 +133,35 @@ export default function Dashboard() {
                 src: record.gen_image_1,
                 isPinned: false,
                 type: 'output' as const,
-                imageId: `${record.record_id}_gen1`
+                imageId: record.gen_image_id_1
               },
               {
                 id: Date.now() + index * 10 + 2,
                 src: record.gen_image_2,
                 isPinned: false,
                 type: 'output' as const,
-                imageId: `${record.record_id}_gen2`
+                imageId: record.gen_image_id_2
               },
               {
                 id: Date.now() + index * 10 + 3,
                 src: record.gen_image_3,
                 isPinned: false,
                 type: 'output' as const,
-                imageId: `${record.record_id}_gen3`
+                imageId: record.gen_image_id_3
               },
               {
                 id: Date.now() + index * 10 + 4,
                 src: record.gen_image_4,
                 isPinned: false,
                 type: 'output' as const,
-                imageId: `${record.record_id}_gen4`
+                imageId: record.gen_image_id_4
               },
               {
                 id: Date.now() + index * 10 + 5,
                 src: record.reference_image_url,
                 isPinned: false,
-                type: 'reference' as const,
-                imageId: `${record.record_id}_ref`
+                type: 'recommendation' as const,
+                imageId: record.reference_image_id,
               }
             ];
 
@@ -220,6 +222,24 @@ export default function Dashboard() {
     }
   };
 
+  // 1. currentGeneratingRowId 변화 추적
+  useEffect(() => {
+    console.log('🆔 currentGeneratingRowId changed:', {
+      newValue: currentGeneratingRowId,
+      timestamp: new Date().toISOString(),
+      stack: new Error().stack?.split('\n').slice(1, 4)
+    });
+  }, [currentGeneratingRowId]);
+
+  // 2. isGenerating 변화 추적  
+  useEffect(() => {
+    console.log('🎬 isGenerating changed:', {
+      newValue: isGenerating,
+      currentGeneratingRowId,
+      timestamp: new Date().toISOString()
+    });
+  }, [isGenerating]);
+
   // 초기 데이터 로드
   useEffect(() => {
     const loadData = async () => {
@@ -275,6 +295,7 @@ export default function Dashboard() {
   };
 
   const handleTogglePin = async (imageId: number, roomId?: string, createNew?: boolean) => {
+
     // createNew가 true이면 새 room 생성
     if (createNew) {
       handleCreateRoom();
@@ -314,22 +335,34 @@ export default function Dashboard() {
         // 이미지 정보 찾기
         let imageData: {imageId: string, url: string; note: string} | null = null;
 
+        // GeneratedRows에서 찾기
         for (const row of generatedRows) {
           const foundImage = row.images.find(img => img.id === imageId);
           if (foundImage) {
-            
-                console.log('🔍 Found image for pinning:');
-                console.log('  - Frontend ID:', foundImage.id);
-                console.log('  - Backend ImageID:', foundImage.imageId);
-                console.log('  - URL:', foundImage.src);
-                console.log('  - Type:', typeof foundImage.imageId);
-  
             imageData = {
               imageId: foundImage.imageId || `fallback_${uuidv4()}`,
               url: foundImage.src,
               note: `Generated from: ${row.keyword || 'Unknown'}`
             };
             break;
+          }
+        }
+
+        // History images에서 찾기
+        if (!imageData && historyImages.length > 0) {
+          for (const historyRow of historyImages) {
+            const foundImage = historyRow.images.find(img => {
+              return img.id === imageId;
+            });
+            
+            if (foundImage) {
+              imageData = {
+                imageId: foundImage.imageId || `fallback_${uuidv4()}`,
+                url: foundImage.src,
+                note: `History: ${historyRow.keyword || 'Unknown'}`
+              };
+              break;
+            }
           }
         }
 
@@ -383,7 +416,11 @@ export default function Dashboard() {
 
   // 새로운 생성 결과 처리 (SSE를 통해 받은 완전한 결과)
   const handleGenerationComplete = (result: GeneratedRow) => {
-    console.log('🎉 Generation completed:', result);
+    console.log('🎉 handleGenerationComplete called:', {
+    resultId: result.id,
+    currentGeneratingRowId,  // ← 여기서 이미 null인지 확인
+    timestamp: new Date().toISOString()
+  });
     
     const context = getCurrentContext();
     
@@ -396,6 +433,8 @@ export default function Dashboard() {
     } else {
       // History 모드: 기존에 생성 중이던 행이 있으면 업데이트, 없으면 새로 추가
       if (currentGeneratingRowId) {
+        console.log('✅ Found currentGeneratingRowId, updating existing row');
+
         setGeneratedRows(prev => 
           prev.map(row => 
             row.id === currentGeneratingRowId 
@@ -421,21 +460,36 @@ export default function Dashboard() {
       recommendationImage: result.recommendationImage
     });
 
-    // 생성 완료 후 상태 초기화
-    setCurrentGeneratingRowId(null);
 
-    // 애니메이션 상태 초기화 (생성 완료 후)
-    setAnimationState({
-      animatedImages: [],
-      animatedImageIds: [],
-      imageAnimationComplete: false,
-      animatedStoryText: '',
-      storyAnimationComplete: false,
-      animatedKeywords: [],
-      keywordAnimationComplete: false,
-      recommendationVisible: false
-    });
-    setIsGenerating(false);
+    // ⚠️ 상태 초기화를 지연시키기
+    setTimeout(() => {
+      setCurrentGeneratingRowId(null);
+      setAnimationState({animatedImages: [],
+        animatedImageIds: [],
+        imageAnimationComplete: false,
+        animatedStoryText: '',
+        storyAnimationComplete: false,
+        animatedKeywords: [],
+        keywordAnimationComplete: false,
+        recommendationVisible: false});
+      setIsGenerating(false);
+    }, 500); // 100ms 지연
+
+    // // 생성 완료 후 상태 초기화
+    // setCurrentGeneratingRowId(null);
+
+    // // 애니메이션 상태 초기화 (생성 완료 후)
+    // setAnimationState({
+    //   animatedImages: [],
+    //   animatedImageIds: [],
+    //   imageAnimationComplete: false,
+    //   animatedStoryText: '',
+    //   storyAnimationComplete: false,
+    //   animatedKeywords: [],
+    //   keywordAnimationComplete: false,
+    //   recommendationVisible: false
+    // });
+    // setIsGenerating(false);
   };
 
   // 생성 모드 변경 핸들러
@@ -484,89 +538,100 @@ export default function Dashboard() {
       recommendation: newAnimationState.recommendationVisible
     });
 
+    // 🔍 각 조건을 개별적으로 체크
+    console.log('🔍 Condition check:', {
+      isGenerating,
+      currentGeneratingRowId,
+      viewMode,
+      hasImages: newAnimationState.animatedImages.length > 0,
+      timestamp: new Date().toISOString()
+    });
+
     setAnimationState(newAnimationState);
 
-    // 생성 중이고 History 모드일 때만 Gallery에 실시간 업데이트
-    if (isGenerating && currentGeneratingRowId && viewMode === 'history') {
+    // // 생성 중이고 History 모드일 때만 Gallery에 실시간 업데이트
+    // if (isGenerating && currentGeneratingRowId && viewMode === 'history') {
       
-      // 1. 이미지가 새로 추가되었을 때 - Gallery에 즉시 반영
-      if (newAnimationState.animatedImages.length > 0) {
-        const images = newAnimationState.animatedImages.map((url, index) => ({
-          id: Date.now() + index + 1000, // Gallery용 고유 ID
-          src: url,
-          isPinned: false,
-          type: 'output' as const,
-          imageId: newAnimationState.animatedImageIds[index] || `temp_${index}`
-        }));
+    //   // 1. 이미지가 새로 추가되었을 때 - Gallery에 즉시 반영
+    //   if (newAnimationState.animatedImages.length > 0) {
+    //     const images = newAnimationState.animatedImages.map((url, index) => ({
+    //       id: Date.now() + index + 1000, // Gallery용 고유 ID
+    //       src: url,
+    //       isPinned: false,
+    //       type: 'output' as const,
+    //       imageId: newAnimationState.animatedImageIds[index] || `temp_${index}`
+    //     }));
 
-        // 부분 행 생성 또는 업데이트
-        const partialRow: GeneratedRow = {
-          id: currentGeneratingRowId,
-          sessionId: userHistorySession?.session_id || 'temp_session',
-          images,
-          keyword: 'Generating...', // 임시 키워드
-          story: newAnimationState.animatedStoryText || undefined,
-          generatedKeywords: newAnimationState.animatedKeywords.length > 0 ? newAnimationState.animatedKeywords : undefined,
-          recommendationImage: newAnimationState.recommendationVisible ? 'generating' : undefined,
-          createdAt: new Date(),
-          status: 'processing',
-          metadata: {
-            inputImages: [],
-            generationTime: Date.now(),
-            generatedBy: user?.id || 'guest'
-          }
-        };
+    //     // 부분 행 생성 또는 업데이트
+    //     const partialRow: GeneratedRow = {
+    //       id: currentGeneratingRowId,
+    //       sessionId: userHistorySession?.session_id || 'temp_session',
+    //       images,
+    //       keyword: 'Generating...', // 임시 키워드
+    //       story: newAnimationState.animatedStoryText || undefined,
+    //       generatedKeywords: newAnimationState.animatedKeywords.length > 0 ? newAnimationState.animatedKeywords : undefined,
+    //       recommendationImage: newAnimationState.recommendationVisible ? 'generating' : undefined,
+    //       createdAt: new Date(),
+    //       status: 'processing',
+    //       metadata: {
+    //         inputImages: [],
+    //         generationTime: Date.now(),
+    //         generatedBy: user?.id || 'guest'
+    //       }
+    //     };
 
-        setGeneratedRows(prev => {
-          const existingIndex = prev.findIndex(row => row.id === currentGeneratingRowId);
-          if (existingIndex >= 0) {
-            // 기존 행 업데이트
-            const updated = [...prev];
-            updated[existingIndex] = {
-              ...updated[existingIndex],
-              images,
-              story: newAnimationState.animatedStoryText || updated[existingIndex].story,
-              generatedKeywords: newAnimationState.animatedKeywords.length > 0 
-                ? newAnimationState.animatedKeywords 
-                : updated[existingIndex].generatedKeywords,
-              recommendationImage: newAnimationState.recommendationVisible 
-                ? 'generating' 
-                : updated[existingIndex].recommendationImage
-            };
-            console.log('📝 Updated existing generating row in Gallery');
-            return updated;
-          } else {
-            // 새로운 행 추가
-            console.log('➕ Added new generating row to Gallery');
-            return [partialRow, ...prev];
-          }
-        });
+    //     setGeneratedRows(prev => {
+    //       const existingIndex = prev.findIndex(row => row.id === currentGeneratingRowId);
+    //       if (existingIndex >= 0) {
+    //         // 기존 행 업데이트
+    //         const updated = [...prev];
+    //         updated[existingIndex] = {
+    //           ...updated[existingIndex],
+    //           images,
+    //           story: newAnimationState.animatedStoryText || updated[existingIndex].story,
+    //           generatedKeywords: newAnimationState.animatedKeywords.length > 0 
+    //             ? newAnimationState.animatedKeywords 
+    //             : updated[existingIndex].generatedKeywords,
+    //           recommendationImage: newAnimationState.recommendationVisible 
+    //             ? 'generating' 
+    //             : updated[existingIndex].recommendationImage
+    //         };
+    //         console.log('📝 Updated existing generating row in Gallery');
+    //         return updated;
+    //       } else {
+    //         // 새로운 행 추가
+    //         console.log('➕ Added new generating row to Gallery');
+    //         return [partialRow, ...prev];
+    //       }
+    //     });
 
-        // TopPanel도 실시간 업데이트
-        setSelectedRowData({
-          rowIndex: 0,
-          images,
-          keyword: 'Generating...',
-          startImageIndex: 0,
-          story: newAnimationState.animatedStoryText || undefined,
-          generatedKeywords: newAnimationState.animatedKeywords.length > 0 ? newAnimationState.animatedKeywords : undefined,
-          recommendationImage: newAnimationState.recommendationVisible ? 'generating' : undefined
-        });
-      }
-    }
+    //     // TopPanel도 실시간 업데이트
+    //     setSelectedRowData({
+    //       rowIndex: 0,
+    //       images,
+    //       keyword: 'Generating...',
+    //       startImageIndex: 0,
+    //       story: newAnimationState.animatedStoryText || undefined,
+    //       generatedKeywords: newAnimationState.animatedKeywords.length > 0 ? newAnimationState.animatedKeywords : undefined,
+    //       recommendationImage: newAnimationState.recommendationVisible ? 'generating' : undefined
+    //     });
+    //   }
+    // }
+
+    
   };
 
   // 행 선택 핸들러
   const handleRowSelect = (rowData: RowSelectData) => {
     setSelectedRowData(rowData);
 
-    // // 생성 중인 행인지 확인
-    // const isGeneratingRow = currentGeneratingRowId && 
-    //   generatedRows.some(row => row.id === currentGeneratingRowId && 
-    //     row.images.some(img => 
-    //       rowData.images.some(selectedImg => selectedImg.src === img.src)
-    //     )
-    //   );
+    // 생성 중인 행인지 확인
+    const isGeneratingRow = currentGeneratingRowId && 
+      generatedRows.some(row => row.id === currentGeneratingRowId && 
+        row.images.some(img => 
+          rowData.images.some(selectedImg => selectedImg.src === img.src)
+        )
+      );
     
     // 새로 생성된 이미지인 경우 generate 모드로, 기존 이미지인 경우 details 모드로
     const isNewlyGenerated = generatedRows.some(row => 
