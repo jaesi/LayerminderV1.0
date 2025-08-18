@@ -108,7 +108,7 @@ export default function MainPanel({ onGenerate, context, onAnimationStateChange,
       setValidationErrors([]);
 
       // 생성모드 변경 알림
-      onGenerationModeChange?.(false);
+      // onGenerationModeChange?.(false);
     },
     onError: (error) => {
       console.error('❌ Generation failed:', error);

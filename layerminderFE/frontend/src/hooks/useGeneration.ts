@@ -365,16 +365,16 @@ export function useGeneration(options: UseGenerationOptions = {}) {
         
         generationResultRef.current.recommendation = eventData.data.recommendationUrl;
 
-        // 추천 이미지 표시
-        showRecommendation();
-        
         updateState({
           recommendationImage: eventData.data.recommendationUrl,
-          status: 'completed',
+          // status: 'completed',
           currentStep: 'Completed!',
           progress: 100
         });
-
+        
+        // 추천 이미지 표시
+        showRecommendation();
+        
         // 최종 결과 생성 및 완료 처리
         const resultData = generationResultRef.current;
         const result: GeneratedRow = {

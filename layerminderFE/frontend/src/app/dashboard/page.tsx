@@ -220,6 +220,24 @@ export default function Dashboard() {
     }
   };
 
+  // 1. currentGeneratingRowId 변화 추적
+  useEffect(() => {
+    console.log('🆔 currentGeneratingRowId changed:', {
+      newValue: currentGeneratingRowId,
+      timestamp: new Date().toISOString(),
+      stack: new Error().stack?.split('\n').slice(1, 4)
+    });
+  }, [currentGeneratingRowId]);
+
+  // 2. isGenerating 변화 추적  
+  useEffect(() => {
+    console.log('🎬 isGenerating changed:', {
+      newValue: isGenerating,
+      currentGeneratingRowId,
+      timestamp: new Date().toISOString()
+    });
+  }, [isGenerating]);
+
   // 초기 데이터 로드
   useEffect(() => {
     const loadData = async () => {
@@ -383,7 +401,11 @@ export default function Dashboard() {
 
   // 새로운 생성 결과 처리 (SSE를 통해 받은 완전한 결과)
   const handleGenerationComplete = (result: GeneratedRow) => {
-    console.log('🎉 Generation completed:', result);
+    console.log('🎉 handleGenerationComplete called:', {
+    resultId: result.id,
+    currentGeneratingRowId,  // ← 여기서 이미 null인지 확인
+    timestamp: new Date().toISOString()
+  });
     
     const context = getCurrentContext();
     
@@ -396,6 +418,8 @@ export default function Dashboard() {
     } else {
       // History 모드: 기존에 생성 중이던 행이 있으면 업데이트, 없으면 새로 추가
       if (currentGeneratingRowId) {
+        console.log('✅ Found currentGeneratingRowId, updating existing row');
+
         setGeneratedRows(prev => 
           prev.map(row => 
             row.id === currentGeneratingRowId 
@@ -421,21 +445,36 @@ export default function Dashboard() {
       recommendationImage: result.recommendationImage
     });
 
-    // 생성 완료 후 상태 초기화
-    setCurrentGeneratingRowId(null);
 
-    // 애니메이션 상태 초기화 (생성 완료 후)
-    setAnimationState({
-      animatedImages: [],
-      animatedImageIds: [],
-      imageAnimationComplete: false,
-      animatedStoryText: '',
-      storyAnimationComplete: false,
-      animatedKeywords: [],
-      keywordAnimationComplete: false,
-      recommendationVisible: false
-    });
-    setIsGenerating(false);
+    // ⚠️ 상태 초기화를 지연시키기
+    setTimeout(() => {
+      setCurrentGeneratingRowId(null);
+      setAnimationState({animatedImages: [],
+        animatedImageIds: [],
+        imageAnimationComplete: false,
+        animatedStoryText: '',
+        storyAnimationComplete: false,
+        animatedKeywords: [],
+        keywordAnimationComplete: false,
+        recommendationVisible: false});
+      setIsGenerating(false);
+    }, 500); // 100ms 지연
+
+    // // 생성 완료 후 상태 초기화
+    // setCurrentGeneratingRowId(null);
+
+    // // 애니메이션 상태 초기화 (생성 완료 후)
+    // setAnimationState({
+    //   animatedImages: [],
+    //   animatedImageIds: [],
+    //   imageAnimationComplete: false,
+    //   animatedStoryText: '',
+    //   storyAnimationComplete: false,
+    //   animatedKeywords: [],
+    //   keywordAnimationComplete: false,
+    //   recommendationVisible: false
+    // });
+    // setIsGenerating(false);
   };
 
   // 생성 모드 변경 핸들러
@@ -482,6 +521,15 @@ export default function Dashboard() {
       storyLength: newAnimationState.animatedStoryText.length,
       keywords: newAnimationState.animatedKeywords.length,
       recommendation: newAnimationState.recommendationVisible
+    });
+
+    // 🔍 각 조건을 개별적으로 체크
+    console.log('🔍 Condition check:', {
+      isGenerating,
+      currentGeneratingRowId,
+      viewMode,
+      hasImages: newAnimationState.animatedImages.length > 0,
+      timestamp: new Date().toISOString()
     });
 
     setAnimationState(newAnimationState);
@@ -554,19 +602,21 @@ export default function Dashboard() {
         });
       }
     }
+
+    
   };
 
   // 행 선택 핸들러
   const handleRowSelect = (rowData: RowSelectData) => {
     setSelectedRowData(rowData);
 
-    // // 생성 중인 행인지 확인
-    // const isGeneratingRow = currentGeneratingRowId && 
-    //   generatedRows.some(row => row.id === currentGeneratingRowId && 
-    //     row.images.some(img => 
-    //       rowData.images.some(selectedImg => selectedImg.src === img.src)
-    //     )
-    //   );
+    // 생성 중인 행인지 확인
+    const isGeneratingRow = currentGeneratingRowId && 
+      generatedRows.some(row => row.id === currentGeneratingRowId && 
+        row.images.some(img => 
+          rowData.images.some(selectedImg => selectedImg.src === img.src)
+        )
+      );
     
     // 새로 생성된 이미지인 경우 generate 모드로, 기존 이미지인 경우 details 모드로
     const isNewlyGenerated = generatedRows.some(row => 
