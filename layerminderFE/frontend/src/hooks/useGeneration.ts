@@ -513,21 +513,59 @@ export function useGeneration(options: UseGenerationOptions = {}) {
       });
 
       // 2단계: 이미지 업로드
-      const uploadPromises = files.map(async (item) => {
-        const uploadResult = await uploadImageWithMetadata(item.file, 'input');
+      // 🔧 Gallery 이미지와 일반 파일 분리 처리
+  const uploadPromises = files.map(async (item) => {
+    // Gallery 이미지인 경우 업로드 건너뛰고 URL 정보만 사용
+    if (item.isGalleryImage && item.originalUrl) {
+      console.log('📋 Gallery 이미지 감지 - 업로드 건너뛰기:', item.originalUrl);
+      
+      // URL에서 파일 키 추출
+      try {
+        const urlObj = new URL(item.originalUrl);
+        // "https://uscwuogmxxaxwvfueasr.supabase.co/storage/v1/object/public/layerminder/generated/user_id/filename.jpeg?"
+        // → "generated/user_id/filename.jpeg"
+        const pathParts = urlObj.pathname.split('/');
+        const bucketIndex = pathParts.findIndex(part => part === 'layerminder');
         
-        if (!uploadResult) {
-          throw new Error(`Upload failed: ${item.file.name}`);
+        if (bucketIndex !== -1 && bucketIndex < pathParts.length - 1) {
+          const fileKey = pathParts.slice(bucketIndex + 1).join('/').replace(/\?$/, ''); // 끝의 ? 제거
+          
+          console.log('🔑 Gallery 이미지 파일 키 추출:', fileKey);
+          
+          return {
+            fileKey: fileKey,
+            publicUrl: item.originalUrl,
+            uploadMethod: 'gallery_reuse'
+          };
+        } else {
+          throw new Error('Invalid Supabase URL format');
         }
         
-        return uploadResult;
-      });
+      } catch (error) {
+        console.error('❌ Gallery 이미지 URL 파싱 실패:', error);
+        throw new Error(`Gallery image processing failed: ${item.originalUrl}`);
+      }
+    } 
+    
+    // 일반 파일인 경우 기존 업로드 로직 사용
+    else {
+      console.log('📤 일반 파일 업로드:', item.file.name);
+      const uploadResult = await uploadImageWithMetadata(item.file, 'input');
+      
+      if (!uploadResult) {
+        throw new Error(`Upload failed: ${item.file.name}`);
+      }
+      
+      return uploadResult;
+    }
+  });
 
-      const uploadResults = await Promise.all(uploadPromises);
-      console.log('✅ All files uploaded:', uploadResults.length);
+  const uploadResults = await Promise.all(uploadPromises);
+  console.log('✅ 모든 이미지 처리 완료:', uploadResults);
 
-      const imageKeys = uploadResults.map(result => result.fileKey);
-      const keyword = keywords.length > 0 ? keywords[0] : 'Undefined';
+  // 파일 키 추출 (Gallery 이미지와 업로드된 파일 모두 포함)
+  const imageKeys = uploadResults.map(result => result.fileKey);
+  const keyword = keywords.length > 0 ? keywords[0] : 'Undefined';
 
       updateState({
         status: 'generating',

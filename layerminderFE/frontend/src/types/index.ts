@@ -229,6 +229,9 @@ export interface DroppedFile {
   id: string;
   file: File;
   previewUrl: string;
+  isGalleryImage?: boolean;      
+  originalUrl?: string;          
+  galleryImageId?: string;     
 }
 
 // GeneratedRow 타입 
