@@ -58,10 +58,41 @@ export default function Gallery({
   const [pinModalPosition, setPinModalPosition] = useState<{top: number, left: number, width: number, height: number} | null>(null);
   const [roomSearchTerm, setRoomSearchTerm] = useState('');
   const [isClient, setIsClient] = useState(false);
+  const [randomSeed] = useState(() => {
+    // 브라우저 세션 정보와 시간을 조합하여 고유한 시드 생성
+    const timestamp = Date.now();
+    const random = Math.random();
+    const sessionSeed = timestamp + random;
+    
+    console.log('🎯 Gallery session seed generated:', sessionSeed);
+    return sessionSeed;
+  });
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // 🎯 세션 기반 랜덤 키워드 선택 함수
+  const getRandomKeywordWithSessionSeed = (
+    keywords: string[], 
+    recordId: string, 
+    fallback: string = 'Generated'
+  ): string => {
+    if (!keywords || keywords.length === 0) {
+      return fallback;
+    }
+    
+    if (keywords.length === 1) {
+      return keywords[0];
+    }
+    
+    // recordId + 세션 시드를 조합하여 새로고침마다 바뀌지만 같은 세션에서는 일관성 유지
+    const combinedSeed = recordId + randomSeed.toString();
+    const numericSeed = combinedSeed.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const randomIndex = numericSeed % keywords.length;
+    
+    return keywords[randomIndex];
+  };
 
   const seededRandom = (seed: number) => {
     const x = Math.sin(seed) * 10000;
@@ -133,22 +164,13 @@ export default function Gallery({
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         });
         const historyRowsData = sortedHistoryImages.map((historyRow, index) => {
-          // 렌덤 키워드 선택 로직
-          const getRandomKeyword = (keywords: string[], fallback: string = 'Generated'): string => {
-            if (!keywords || keywords.length === 0) return fallback;
 
-            if (keywords.length === 1) return keywords[0];
-
-            // 시드 기반 랜덤 선택 (일관성을 위해)
-            // recordId를 기반으로 시드 생성하여 같은 레코드는 항상 같은 키워드 선택
-            const seed = historyRow.recordId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-            const randomIndex = seed % keywords.length;
-            
-            return keywords[randomIndex];
-          }
-
-          // 랜덤하게 선택된 키워드
-          const randomKeyword = getRandomKeyword(historyRow.keywords, historyRow.keyword);
+          // 🎯 세션 기반 랜덤 키워드 선택
+          const randomKeyword = getRandomKeywordWithSessionSeed(
+            historyRow.keywords, 
+            historyRow.recordId, 
+            historyRow.keyword // fallback으로 기본 키워드 사용
+          );
 
           const items = [
             // 생성된 이미지 4개
