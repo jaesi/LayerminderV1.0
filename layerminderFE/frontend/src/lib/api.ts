@@ -90,13 +90,8 @@ export async function createSSEConnectionWithAuth(
   onComplete?: () => void
 ): Promise<EventSource | null> {
   try {
-    const token = await getAuthToken();
-    
     // 인증이 필요한 경우 토큰을 쿼리 파라미터로 전달
-    let url = `${API_BASE_URL}/api/v1/stream/${recordId}`;
-    // if (token) {
-    //   url += `?token=${encodeURIComponent(token)}`;
-    // }
+    const url = `${API_BASE_URL}/api/v1/stream/${recordId}`;
     
     console.log('🔗 Creating SSE connection to:', url);
     
