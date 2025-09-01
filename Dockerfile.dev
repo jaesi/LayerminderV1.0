@@ -22,14 +22,14 @@ COPY pyproject.toml poetry.lock* ./
 RUN poetry config virtualenvs.create false \
  && poetry install --only main --no-interaction --no-ansi --no-root
 
-# 7) COPY app source
-COPY layerminderBE/ .
+# 7) COPY app source: for dev session -> use Volume Mount
+# COPY layerminderBE/ .
 
 # 8) Runtime env 
 ENV PYTHONPATH=/app \
     OMP_NUM_THREADS=1 \
     KMP_DUPLICATE_LIB_OK=TRUE\
-    TRANSFORMERS_NO_TORCHVISION=1\
+    TRANSFORMERS_NO_TORCHVISION=1 \
     TRANSFORMERS_IMAGE_PROCESSING_USE_FAST=0
 
 # 9) Port

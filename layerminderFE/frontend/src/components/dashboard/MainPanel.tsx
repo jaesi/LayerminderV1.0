@@ -1,12 +1,24 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { X, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
-import { DroppedFile } from '@/types';
+import { X, Loader2, AlertCircle, CheckCircle, Zap, Clock } from 'lucide-react';
+import { DroppedFile, GeneratedRow, GenerationContext } from '@/types';
+import { useGeneration } from '@/hooks/useGeneration';
 
 interface MainPanelProps {
-  onGenerate: (files: DroppedFile[], keywords: string[]) => Promise<void>;
-  isGenerating?: boolean;
+  onGenerate: (result: GeneratedRow) => void;
+  context: GenerationContext;
+  onAnimationStateChange?: (animationState: {
+    animatedImages: string[];
+    animatedImageIds: string[];
+    imageAnimationComplete: boolean;
+    animatedStoryText: string;
+    storyAnimationComplete: boolean;
+    animatedKeywords: string[];
+    keywordAnimationComplete: boolean;
+    recommendationVisible: boolean;
+  }) => void;
+  onGenerationModeChange?: (isGenerating: boolean) => void;
 }
 
 // 간단한 파일 검증
@@ -25,14 +37,114 @@ function validateFile(file: File): { valid: boolean; error?: string } {
   return { valid: true };
 }
 
-export default function MainPanel({ 
-  onGenerate,
-  isGenerating = false
-}: MainPanelProps) {
+// 원형 프로그레스 바 컴포넌트
+const CircularProgress = ({ progress, size = 200 }: { progress: number; size?: number }) => {
+  const radius = (size - 8) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (progress / 100) * circumference;
+
+  return (
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg
+        className="transform -rotate-90"
+        width={size}
+        height={size}
+      >
+        {/* Background circle */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#e5e7eb"
+          strokeWidth="4"
+          fill="transparent"
+        />
+        {/* Progress circle */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#3b82f6"
+          strokeWidth="4"
+          fill="transparent"
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+          className="transition-all duration-500 ease-out"
+        />
+      </svg>
+    </div>
+  );
+};
+
+export default function MainPanel({ onGenerate, context, onAnimationStateChange, onGenerationModeChange }: MainPanelProps) {
   const [droppedFiles, setDroppedFiles] = useState<DroppedFile[]>([]);
   const [droppedKeywords, setDroppedKeywords] = useState<string[]>([]);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 새로운 생성 훅 사용
+  const {
+    status,
+    progress,
+    error: generationError,
+    isGenerating,
+    isSSEConnected,
+    animationState,
+    generate,
+    cancelGeneration,
+  } = useGeneration({
+    context,
+    onComplete: (result) => {
+      console.log('✅ Generation completed:', result);
+      onGenerate(result);
+      
+      // 파일들 정리
+      droppedFiles.forEach(item => {
+        URL.revokeObjectURL(item.previewUrl);
+      });
+      setDroppedFiles([]);
+      setDroppedKeywords([]);
+      setValidationErrors([]);
+
+      // 생성모드 변경 알림
+      // onGenerationModeChange?.(false);
+    },
+    onError: (error) => {
+      console.error('❌ Generation failed:', error);
+      setValidationErrors([error]);
+      onGenerationModeChange?.(false);
+    },
+    onProgress: (step, progressValue) => {
+      console.log(`📊 Progress: ${step} (${progressValue}%)`);
+    },
+
+    // 애니메이션 콜백들
+    onImageAnimationUpdate: (images) => {
+      console.log('🎬 Image animation updated:', images.length);
+    },
+    onStoryAnimationUpdate: (text) => {
+      console.log('✍️ Story animation updated:', text.length, 'characters');
+    },
+    onKeywordAnimationUpdate: (keywords) => {
+      console.log('🏷️ Keyword animation updated:', keywords.length);
+    },
+    onRecommendationShow: () => {
+      console.log('💡 Recommendation shown');
+    }
+  });
+
+  // 생성 상태 변경 시 상위 컴포넌트에 알림
+  React.useEffect(() => {
+    onGenerationModeChange?.(isGenerating);
+  }, [isGenerating]);
+
+  // 애니메이션 상태 변경 시 상위 컴포넌트에 전달
+  React.useEffect(() => {
+    if (animationState && onAnimationStateChange) {
+      onAnimationStateChange(animationState);
+    }
+  }, [animationState]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -63,18 +175,102 @@ export default function MainPanel({
     }
   };
 
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    const files = e.dataTransfer.files;
-    const imageSrc = e.dataTransfer.getData('image/src');
-    const keyword = e.dataTransfer.getData('keyword');
+// MainPanel.tsx의 완전한 handleDrop 함수
+
+const handleDrop = async (e: React.DragEvent) => {
+  e.preventDefault();
+  
+  // 드롭된 데이터 추출
+  const files = e.dataTransfer.files;
+  const imageSrc = e.dataTransfer.getData('image/src');
+  const imageId = e.dataTransfer.getData('image/id');
+  const keyword = e.dataTransfer.getData('keyword');
+  
+  console.log('🎯 드롭 이벤트 데이터:', {
+    filesCount: files.length,
+    imageSrc: imageSrc || '(없음)',
+    imageId: imageId || '(없음)',
+    keyword: keyword || '(없음)'
+  });
+
+  // ===== 케이스 1: Gallery 이미지 드래그 앤 드롭 =====
+  if (imageSrc && droppedFiles.length < 2) {
+    console.log('📸 Gallery 이미지 처리 시작');
     
-    if (imageSrc && droppedFiles.length < 2) {
-      try {
+    try {
+      // Supabase Storage URL인지 확인
+      const isSupabaseUrl = imageSrc.includes('supabase.co/storage/v1/object/public/layerminder');
+      
+      if (isSupabaseUrl) {
+        console.log('📋 Supabase Storage 이미지 감지 - 기존 정보 재사용');
+        
+        // URL에서 파일 정보 추출
+        const urlObj = new URL(imageSrc);
+        const filename = urlObj.pathname.split('/').pop() || 'gallery_image.jpg';
+        const extension = filename.split('.').pop()?.toLowerCase() || 'jpg';
+        
+        // MIME 타입 결정
+        const extensionToMime: Record<string, string> = {
+          'jpg': 'image/jpeg',
+          'jpeg': 'image/jpeg',
+          'png': 'image/png',
+          'webp': 'image/webp'
+        };
+        const mimeType = extensionToMime[extension] || 'image/jpeg';
+        
+        // 더미 File 객체 생성 (실제 업로드하지 않을 예정)
+        const virtualFileName = `gallery_${Date.now()}.${extension}`;
+        const dummyBlob = new Blob([''], { type: mimeType });
+        const file = new File([dummyBlob], virtualFileName, { type: mimeType });
+        
+        const newDroppedFile: DroppedFile = {
+          id: `gallery_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+          file: file,
+          previewUrl: imageSrc,
+          isGalleryImage: true,        // 🔑 Gallery 이미지 표시
+          originalUrl: imageSrc,
+          galleryImageId: imageId || undefined
+        };
+        
+        setDroppedFiles(prev => [...prev, newDroppedFile]);
+        setValidationErrors([]);
+        console.log('✅ Gallery 이미지 정보 저장 완료 (업로드 없음)');
+        
+      } else {
+        // 외부 이미지 URL인 경우 (예: 웹에서 드래그한 이미지)
+        console.log('🌐 외부 이미지 URL - fetch 후 변환');
+        
         const response = await fetch(imageSrc);
         const blob = await response.blob();
-        const fileName = `gallery_image_${Date.now()}.jpg`;
-        const file = new File([blob], fileName, { type: blob.type });
+        
+        // MIME 타입 추론 로직
+        let mimeType = blob.type;
+        let fileExtension = 'jpg';
+        
+        if (!mimeType || !mimeType.startsWith('image/')) {
+          const urlObj = new URL(imageSrc);
+          const pathname = urlObj.pathname;
+          const filename = pathname.split('/').pop() || '';
+          const extension = filename.split('.').pop()?.toLowerCase();
+          
+          const extensionToMime: Record<string, string> = {
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg',
+            'png': 'image/png',
+            'webp': 'image/webp'
+          };
+          
+          if (extension && extensionToMime[extension]) {
+            mimeType = extensionToMime[extension];
+            fileExtension = extension === 'jpeg' ? 'jpg' : extension;
+          } else {
+            mimeType = 'image/jpeg';
+            fileExtension = 'jpg';
+          }
+        }
+        
+        const fileName = `external_image_${Date.now()}.${fileExtension}`;
+        const file = new File([blob], fileName, { type: mimeType });
         
         const validation = validateFile(file);
         if (!validation.valid) {
@@ -83,47 +279,73 @@ export default function MainPanel({
         }
         
         const newDroppedFile: DroppedFile = {
-          id: `gallery_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+          id: `external_${Date.now()}_${Math.random().toString(36).substring(7)}`,
           file: file,
-          previewUrl: imageSrc
+          previewUrl: imageSrc,
+          isGalleryImage: false       // 🔑 일반 이미지로 처리
         };
         
         setDroppedFiles(prev => [...prev, newDroppedFile]);
         setValidationErrors([]);
-      } catch (error) {
-        console.error('Failed to convert gallery image:', error);
-        setValidationErrors(['갤러리 이미지 변환에 실패했습니다.']);
+        console.log('✅ 외부 이미지 변환 완료');
       }
-    }
-    else if (keyword && droppedKeywords.length < 1) {
-      setDroppedKeywords(prev => [...prev, keyword]);
-    }
-    else if (files && droppedFiles.length < 2) {
-      const errors: string[] = [];
-      const validFiles: DroppedFile[] = [];
       
-      Array.from(files)
-        .slice(0, 2 - droppedFiles.length)
-        .forEach(file => {
-          const validation = validateFile(file);
-          
-          if (!validation.valid) {
-            errors.push(`${file.name}: ${validation.error}`);
-          } else {
-            validFiles.push({
-              id: `dropped_${Date.now()}_${Math.random().toString(36).substring(7)}`,
-              file: file,
-              previewUrl: URL.createObjectURL(file)
-            });
-          }
-        });
-      
-      setValidationErrors(errors);
-      if (validFiles.length > 0) {
-        setDroppedFiles(prev => [...prev, ...validFiles]);
-      }
+    } catch (error) {
+      console.error('❌ 이미지 처리 실패:', error);
+      setValidationErrors(['이미지 처리에 실패했습니다. 다시 시도해주세요.']);
     }
-  };
+  }
+  
+  // ===== 케이스 2: 키워드 드래그 앤 드롭 =====
+  else if (keyword && droppedKeywords.length < 1) {
+    console.log('🏷️ 키워드 드롭:', keyword);
+    setDroppedKeywords(prev => [...prev, keyword]);
+  }
+  
+  // ===== 케이스 3: 로컬 파일 드래그 앤 드롭 =====
+  else if (files && files.length > 0 && droppedFiles.length < 2) {
+    console.log('📁 로컬 파일 처리 시작:', files.length, '개 파일');
+    
+    const errors: string[] = [];
+    const validFiles: DroppedFile[] = [];
+    
+    Array.from(files)
+      .slice(0, 2 - droppedFiles.length)  // 최대 2개까지
+      .forEach(file => {
+        console.log('🔍 파일 검증:', file.name, file.type, `${(file.size / 1024).toFixed(1)}KB`);
+        
+        const validation = validateFile(file);
+        
+        if (!validation.valid) {
+          errors.push(`${file.name}: ${validation.error}`);
+        } else {
+          validFiles.push({
+            id: `local_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+            file: file,
+            previewUrl: URL.createObjectURL(file),
+            isGalleryImage: false      // 🔑 로컬 파일은 일반 업로드
+          });
+        }
+      });
+    
+    setValidationErrors(errors);
+    if (validFiles.length > 0) {
+      setDroppedFiles(prev => [...prev, ...validFiles]);
+      console.log('✅ 로컬 파일 추가 완료:', validFiles.length, '개');
+    }
+  }
+  
+  // ===== 처리되지 않은 경우 =====
+  else {
+    console.log('⚠️ 드롭 이벤트를 처리할 수 없음:', {
+      hasImageSrc: !!imageSrc,
+      hasKeyword: !!keyword,
+      hasFiles: files.length > 0,
+      currentDroppedFiles: droppedFiles.length,
+      currentKeywords: droppedKeywords.length
+    });
+  }
+};
 
   const removeDroppedFile = (fileId: string) => {
     setDroppedFiles(prev => {
@@ -150,6 +372,11 @@ export default function MainPanel({
       return;
     }
 
+    if (isGenerating) {
+      cancelGeneration();
+      return;
+    }
+
     const errors: string[] = [];
     droppedFiles.forEach(item => {
       const validation = validateFile(item.file);
@@ -166,20 +393,48 @@ export default function MainPanel({
     setValidationErrors([]);
 
     try {
-      await onGenerate(droppedFiles, droppedKeywords);
-      
-      droppedFiles.forEach(item => {
-        URL.revokeObjectURL(item.previewUrl);
-      });
-      setDroppedFiles([]);
-      setDroppedKeywords([]);
-      
+      // 생성 시작 알림
+      onGenerationModeChange?.(true);
+
+      await generate(droppedFiles, droppedKeywords);
     } catch (error) {
       console.error('Generate failed:', error);
       setValidationErrors([
         error instanceof Error ? error.message : '생성에 실패했습니다. 다시 시도해주세요.'
       ]);
+      onGenerationModeChange?.(false);
     }
+  };
+
+  // 현재 에러 목록 (검증 에러 + 생성 에러)
+  const allErrors = [...validationErrors, ...(generationError ? [generationError] : [])];
+
+  // 생성 상태에 따른 버튼 텍스트 및 아이콘
+  const getButtonContent = () => {
+    if (isGenerating) {
+      return (
+        <>
+          <Loader2 className="animate-spin" size={24} />
+          Cancel
+        </>
+      );
+    }
+    
+    if (status === 'completed') {
+      return (
+        <>
+          <CheckCircle size={24} />
+          Completed!
+        </>
+      );
+    }
+    
+    return (
+      <>
+        <Zap size={24} />
+        Generate
+      </>
+    );
   };
 
   React.useEffect(() => {
@@ -193,8 +448,9 @@ export default function MainPanel({
   return (
     <div className="h-full flex flex-col items-center justify-center p-8 pl-4">
       <div className="flex flex-col items-center gap-6">
+
         {/* 에러 메시지 */}
-        {validationErrors.length > 0 && (
+        {allErrors.length > 0 && (
           <div className="w-80 p-3 bg-red-50 border border-red-200 rounded">
             <div className="flex items-center gap-2 mb-2">
               <AlertCircle size={16} className="text-red-500" />
@@ -207,35 +463,58 @@ export default function MainPanel({
               </button>
             </div>
             <ul className="text-xs text-red-600 space-y-1">
-              {validationErrors.map((error, index) => (
+              {allErrors.map((error, index) => (
                 <li key={index}>• {error}</li>
               ))}
             </ul>
           </div>
         )}
 
-        {/* Generate 버튼 */}
-        <div className="w-80 h-80 flex flex-col items-center justify-center">
-          <div className="w-3 h-3 bg-gray-800 rounded-full mb-2"></div>
-          <button 
-            className={`text-2xl italic font-light transition-colors flex items-center gap-2 ${
-              isGenerating || droppedFiles.length === 0
-                ? 'text-gray-400 cursor-not-allowed' 
-                : 'text-gray-700 hover:text-gray-900'
-            }`}
-            onClick={handleGenerateClick}
-            disabled={isGenerating || droppedFiles.length === 0}
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="animate-spin" size={24} />
-                Generating...
-              </>
-            ) : (
-              'Generate'
+        {/* 원형 프로그레스 바 (생성 중일 때만 표시) */}
+        {isGenerating && (
+          <div className="relative">
+            <CircularProgress progress={progress} size={200} />
+            {/* 중앙 콘텐츠 */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <div className="w-3 h-3 bg-gray-800 rounded-full mb-2"></div>
+              <span className="text-xl italic font-light text-gray-700 mb-1">Generate</span>
+              <span className="text-lg font-medium text-blue-600">{progress}%</span>
+              {/* SSE 연결 상태 표시 */}
+              {isSSEConnected && (
+                <div className="flex items-center gap-1 mt-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-xs text-green-600">Live</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Generate 버튼 (생성 중이 아닐 때만 표시) */}
+        {!isGenerating && (
+          <div className="w-80 h-80 flex flex-col items-center justify-center">
+            <div className="w-3 h-3 bg-gray-800 rounded-full mb-2"></div>
+            <button 
+              className={`text-2xl italic font-light transition-colors flex items-center gap-2 ${
+                droppedFiles.length === 0
+                  ? 'text-gray-400 cursor-not-allowed' 
+                  : 'text-gray-700 hover:text-gray-900'
+              }`}
+              onClick={handleGenerateClick}
+              disabled={droppedFiles.length === 0}
+            >
+              {getButtonContent()}
+            </button>
+            
+            {/* 예상 소요 시간 */}
+            {droppedFiles.length > 0 && (
+              <div className="flex items-center gap-1 mt-2 text-xs text-gray-500">
+                <Clock size={12} />
+                <span>예상 소요시간: 20-30초</span>
+              </div>
             )}
-          </button>
-        </div>
+          </div>
+        )}
 
         {/* Drop 영역 */}
         <div

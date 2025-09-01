@@ -28,6 +28,7 @@ class HistorySession(BaseModel):
     user_id: str
     created_at: str
 
+
 # Image meta data upload
 class ImageMetadataRequest(BaseModel):
     file_key: str
@@ -39,23 +40,49 @@ class ImageMetadataResponse(BaseModel):
     type: str
     created_at: datetime
 
+# ImagesRecordInfo
+class ImageItem(BaseModel):
+    seq: int
+    id: str 
+    url: str
+
+class ImageRecordInfoOut(BaseModel):
+    record_id: UUID
+    story: Optional[str] = None
+    keywords: list[str] = []
+    reference_iamge_url: Optional[str] = None
+    images: List[ImageItem] = []
 
 # Room
-class Room(BaseModel):
-    id: str
-    title: str
-    created_time: Optional[datetime] = None
-
 class RoomCreate(BaseModel):
-    title: str
+    name: str
+    description: Optional[str] = None
+    is_public: bool = False
 
-class UserCreate(BaseModel):
-    email: str
-    password: str
+class RoomUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    is_public: Optional[bool] = None
 
-class Token(BaseModel):
-    access_token: str
-    token_type: str = "bearer" # 기본값 
+class RoomOut(RoomCreate):
+    id: UUID
+    owner_id: UUID
+    slug: str
+    pin_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+class RoomImageCreate(BaseModel):
+    image_id: UUID
+    note: Optional[str] = None
+    seq: Optional[int] = None
+
+class RoomImageOut(BaseModel):
+    room_image_id: UUID
+    image_id: UUID
+    url: str
+    note: Optional[str] = None
+    seq: int
 
 # Upload API
 class UploadRequest(BaseModel):
@@ -77,25 +104,7 @@ class ImageGenerationRequest(BaseModel):
 
 class ImageGenerationResponse(BaseModel):
     record_id: UUID
-    status: str
-
-    model_config = ConfigDict(from_attributes=True)
-
-# Record
-class RecordCreate(BaseModel):
-    session_id: UUID
-    image_ids: List[UUID]
-
-class RecordResponse(BaseModel):
-    record_id: UUID
-    session_id: UUID
-    reference_image_id: Optional[UUID]
-    story: Optional[str]
-    keywords: Optional[str]
-    status: str
-    created_at: datetime
-    updated_at: datetime
-
+    image_status: str
     model_config = ConfigDict(from_attributes=True)
 
 # LayerStory
@@ -104,4 +113,3 @@ class StoryGenerationRequest(BaseModel):
 
 class StoryGenerationResponse(BaseModel):
     story_id: UUID
-
