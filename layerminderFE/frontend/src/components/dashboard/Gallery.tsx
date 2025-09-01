@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Pin, X, Trash2 } from 'lucide-react';
+import Image from 'next/image';
 // import { dummyImages, keywords } from '@/data/dummyData';
 import { HistorySession, GeneratedRow, RoomImage, LayerRoom, ProcessedHistoryRow } from '@/types';
 
@@ -43,10 +44,8 @@ export default function Gallery({
   pinnedImages, 
   onRowSelect,
   viewMode,
-  selectedHistoryId,
   selectedRoomId,
   generatedRows,
-  historySessions,
   roomImages,
   roomImagesLoading,
   rooms,
@@ -58,6 +57,7 @@ export default function Gallery({
   const [pinModalPosition, setPinModalPosition] = useState<{top: number, left: number, width: number, height: number} | null>(null);
   const [roomSearchTerm, setRoomSearchTerm] = useState('');
   const [isClient, setIsClient] = useState(false);
+
   const [randomSeed] = useState(() => {
     // 브라우저 세션 정보와 시간을 조합하여 고유한 시드 생성
     const timestamp = Date.now();
@@ -469,11 +469,13 @@ export default function Gallery({
                       onDragStart={(e) => handleImageDragStart(e, image.src)}
                       onClick={() => handleRowClick(rowIndex, image.id)}
                     >
-                      <div className="aspect-square bg-gray-200 overflow-hidden">
-                        <img
+                      <div className="aspect-square bg-gray-200 overflow-hidden relative">
+                        <Image
                           src={image.src}
                           alt=""
-                          className="w-full h-full object-cover hover:scale-105 transition-transform"
+                          fill
+                          className="object-cover hover:scale-105 transition-transform"
+                          sizes="(max-width: 768px) 50vw, 20vw"
                         />
                       </div>
                       
@@ -520,11 +522,13 @@ export default function Gallery({
                       onDragStart={(e) => handleImageDragStart(e, image.src)}
                       onClick={() => handleRowClick(rowIndex, image.id)}
                     >
-                      <div className="aspect-square bg-gray-200 overflow-hidden">
-                        <img
+                      <div className="aspect-square bg-gray-200 overflow-hidden relative">
+                        <Image
                           src={image.src}
                           alt=""
-                          className="w-full h-full object-cover hover:scale-105 transition-transform"
+                          fill
+                          className="object-cover hover:scale-105 transition-transform"
+                          sizes="(max-width: 768px) 50vw, 20vw"
                         />
                       </div>
                       

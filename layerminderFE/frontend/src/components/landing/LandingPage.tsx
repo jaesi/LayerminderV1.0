@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { signInWithGoogle, signInWithKakao } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
 
@@ -69,10 +70,13 @@ export default function LandingPage() {
       {/* 좌측 이미지 영역 */}
       <div className="w-1/2 flex items-center justify-center">
         <div className="max-w-2xl">
-          <img 
+          <Image 
             src="/images/layminder2.png" 
             alt="Layer Minder Concept" 
+            width={448}
+            height={300}
             className="w-112 h-auto"
+            priority
           />
         </div>
       </div>
@@ -82,15 +86,19 @@ export default function LandingPage() {
         {/* 로고 및 타이틀 */}
         <div className="text-center mb-8">
           <div className="mb-6">
-            <img 
+            <Image 
               src="/images/logo2.png" 
               alt="Layer Minder Logo" 
+              width={48}
+              height={48}
               className="h-12 mx-auto mb-4"
             />
           </div>
-          <img 
+          <Image 
             src="/images/logo.png" 
             alt="Layer Minder" 
+            width={120}
+            height={32}
             className="h-8 mx-auto mb-4"
           />
         </div>
