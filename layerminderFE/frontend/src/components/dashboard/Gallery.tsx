@@ -78,145 +78,143 @@ export default function Gallery({
     return shuffled;
   };
 
-// Gallery.tsx의 getDisplayRows 함수 수정
+  const getDisplayRows = () => {
+    if (viewMode === 'history') {
+      // 히스토리 로딩 중
+      if (historyImagesLoading) {
+        return [];
+      }
 
-const getDisplayRows = () => {
-  if (viewMode === 'history') {
-    // 히스토리 로딩 중
-    if (historyImagesLoading) {
-      return [];
-    }
+      const rows = [];
 
-    const rows = [];
+      // 1. 먼저 새로 생성된 이미지들 추가 (최신이 맨 위에)
+      const historyGeneratedRows = generatedRows;
+      const generatedRowsData = historyGeneratedRows.map((genRow, index) => {
+        const outputImages = genRow.images.filter(img => img.type === 'output');
+        const keyword = genRow.keyword;
 
-    // 1. 먼저 새로 생성된 이미지들 추가 (최신이 맨 위에)
-    const historyGeneratedRows = generatedRows;
-    const generatedRowsData = historyGeneratedRows.map((genRow, index) => {
-      const outputImages = genRow.images.filter(img => img.type === 'output');
-      const keyword = genRow.keyword;
-
-      const items = [
-        ...outputImages.map(img => ({ type: 'output' as const, data: img})),
-        ...(genRow.recommendationImage ? [{
-          type: 'recommendation' as const, 
-          data: { 
-            id: Date.now() + 9999 + index, 
-            src: genRow.recommendationImage, 
-            isPinned: false, 
-            type: 'recommendation' as const 
-          }
-        }] : []),
-        { type: 'keyword' as const, data: keyword }
-      ];
-
-      const shuffledItems = isClient ? shuffleArray(items, index * 1000) : items;
-      
-      return {
-        items: shuffledItems,
-        allImages: [
-          ...outputImages,
-          ...(genRow.recommendationImage ? [{
-            id: Date.now() + 9999 + index,
-            src: genRow.recommendationImage,
-            isPinned: false,
-            type: 'recommendation' as const,
-          }] : [])
-        ]
-      };
-    });
-
-    // 2. 새로 생성된 행들을 먼저 추가
-    rows.push(...generatedRowsData);
-
-    // 3. 그 다음에 기존 히스토리 이미지들 추가
-    if (historyImages.length > 0) {
-      // 최신순 정렬
-      const sortedHistoryImages = [...historyImages].sort((a, b) => {
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      });
-      const historyRowsData = sortedHistoryImages.map((historyRow, index) => {
         const items = [
-          // 생성된 이미지 4개
-          ...historyRow.images.filter(img => img.type === 'output').map(img => ({ 
-            type: 'output' as const, 
-            data: img
-          })),
-          // 레퍼런스 이미지 1개
-          ...historyRow.images.filter(img => img.type === 'recommendation').map(img => ({ 
+          ...outputImages.map(img => ({ type: 'output' as const, data: img})),
+          ...(genRow.recommendationImage ? [{
             type: 'recommendation' as const, 
-            data: img
-          })),
-          // 키워드
-          { type: 'keyword' as const, data: historyRow.keyword }
+            data: { 
+              id: Date.now() + 9999 + index, 
+              src: genRow.recommendationImage, 
+              isPinned: false, 
+              type: 'recommendation' as const 
+            }
+          }] : []),
+          { type: 'keyword' as const, data: keyword }
         ];
 
-        // generatedRows와 겹치지 않도록 다른 seed 사용
-        const shuffledItems = isClient ? shuffleArray(items, (index + 10000) * 1000) : items;
+        const shuffledItems = isClient ? shuffleArray(items, index * 1000) : items;
         
         return {
           items: shuffledItems,
-          allImages: historyRow.images,
-          historyData: historyRow // 히스토리 데이터 추가
+          allImages: [
+            ...outputImages,
+            ...(genRow.recommendationImage ? [{
+              id: Date.now() + 9999 + index,
+              src: genRow.recommendationImage,
+              isPinned: false,
+              type: 'recommendation' as const,
+            }] : [])
+          ]
         };
       });
 
-      // 히스토리 행들 추가
-      rows.push(...historyRowsData);
+      // 2. 새로 생성된 행들을 먼저 추가
+      rows.push(...generatedRowsData);
+
+      // 3. 그 다음에 기존 히스토리 이미지들 추가
+      if (historyImages.length > 0) {
+        // 최신순 정렬
+        const sortedHistoryImages = [...historyImages].sort((a, b) => {
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
+        const historyRowsData = sortedHistoryImages.map((historyRow, index) => {
+          const items = [
+            // 생성된 이미지 4개
+            ...historyRow.images.filter(img => img.type === 'output').map(img => ({ 
+              type: 'output' as const, 
+              data: img
+            })),
+            // 레퍼런스 이미지 1개
+            ...historyRow.images.filter(img => img.type === 'recommendation').map(img => ({ 
+              type: 'recommendation' as const, 
+              data: img
+            })),
+            // 키워드
+            { type: 'keyword' as const, data: historyRow.keyword }
+          ];
+
+          // generatedRows와 겹치지 않도록 다른 seed 사용
+          const shuffledItems = isClient ? shuffleArray(items, (index + 10000) * 1000) : items;
+          
+          return {
+            items: shuffledItems,
+            allImages: historyRow.images,
+            historyData: historyRow // 히스토리 데이터 추가
+          };
+        });
+
+        // 히스토리 행들 추가
+        rows.push(...historyRowsData);
+      }
+
+      return rows;
     }
 
-    return rows;
-  }
-
-  if (viewMode === 'room' && selectedRoomId) {
-    // Room 이미지들을 Gallery 형식으로 변환
-    if (roomImagesLoading) {
-      return []; // 로딩 중에는 빈 배열
-    }
-    
-    if (roomImages.length === 0) {
-      return []; // 이미지가 없으면 빈 배열
-    }
-    
-    // Room 이미지들을 6개씩 묶어서 행으로 만들기
-    const rows = [];
-    const imagesPerRow = 6;
-    
-    for (let i = 0; i < roomImages.length; i += imagesPerRow - 1) { // -1은 키워드 공간 확보
-      const rowImages = roomImages.slice(i, i + imagesPerRow - 1);
+    if (viewMode === 'room' && selectedRoomId) {
+      // Room 이미지들을 Gallery 형식으로 변환
+      if (roomImagesLoading) {
+        return []; // 로딩 중에는 빈 배열
+      }
       
-      const items = [
-        ...rowImages.map((roomImg, index) => ({ 
-          type: 'output' as const, 
-          data: {
+      if (roomImages.length === 0) {
+        return []; // 이미지가 없으면 빈 배열
+      }
+      
+      // Room 이미지들을 6개씩 묶어서 행으로 만들기
+      const rows = [];
+      const imagesPerRow = 6;
+      
+      for (let i = 0; i < roomImages.length; i += imagesPerRow - 1) { // -1은 키워드 공간 확보
+        const rowImages = roomImages.slice(i, i + imagesPerRow - 1);
+        
+        const items = [
+          ...rowImages.map((roomImg, index) => ({ 
+            type: 'output' as const, 
+            data: {
+              id: Date.now() + i + index,
+              src: roomImg.url,
+              isPinned: false,
+              type: 'output' as const,
+              imageId: roomImg.image_id,
+              roomImageId: roomImg.room_image_id // Room에서 삭제할 때 필요
+            }
+          })),
+          { type: 'keyword' as const, data: 'Room Images' }
+        ];
+        
+        rows.push({
+          items,
+          allImages: rowImages.map((roomImg, index) => ({
             id: Date.now() + i + index,
             src: roomImg.url,
             isPinned: false,
             type: 'output' as const,
             imageId: roomImg.image_id,
-            roomImageId: roomImg.room_image_id // Room에서 삭제할 때 필요
-          }
-        })),
-        { type: 'keyword' as const, data: 'Room Images' }
-      ];
+            roomImageId: roomImg.room_image_id
+          }))
+        });
+      }
       
-      rows.push({
-        items,
-        allImages: rowImages.map((roomImg, index) => ({
-          id: Date.now() + i + index,
-          src: roomImg.url,
-          isPinned: false,
-          type: 'output' as const,
-          imageId: roomImg.image_id,
-          roomImageId: roomImg.room_image_id
-        }))
-      });
+      return rows;
     }
     
-    return rows;
-  }
-  
-  return [];
-};
+    return [];
+  };
   
   // const createDefaultRow = (rowIndex: number) => {
   //   const outputImages = dummyImages.outputs.slice(rowIndex * 4, (rowIndex + 1) * 4);

@@ -14,6 +14,10 @@ export default function Navigation({ onToggleSidebar }: NavigationProps) {
     }
   };
 
+  const handleInstagram = () => {
+    window.open('https://www.instagram.com/layerminder/', '_blank', 'noopener,noreferrer');
+  }
+
   // 사용자 정보 우선순위: 백엔드 프로필 > Supabase user
   const displayName = profile?.user_metadata?.name || user?.user_metadata?.name || user?.email || '사용자';
   const avatarUrl = profile?.user_metadata?.avatar_url || user?.user_metadata?.avatar_url;
@@ -64,8 +68,17 @@ export default function Navigation({ onToggleSidebar }: NavigationProps) {
               </button>
             </div>
           )}
-          
-          <div className="text-sm text-gray-600">@IG</div>
+
+          {/* 인스타그램 링크 */}
+          <button
+            onClick={handleInstagram}
+            className="text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-2 py-1 rounded transition-colors"
+            title="Instagram"
+          >
+            @IG
+          </button>
+
+          {/* 햄버거 버튼 */}
           <button 
             onClick={onToggleSidebar}
             className="p-2 hover:bg-gray-100 rounded"
