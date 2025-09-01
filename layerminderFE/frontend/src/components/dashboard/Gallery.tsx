@@ -133,6 +133,23 @@ export default function Gallery({
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         });
         const historyRowsData = sortedHistoryImages.map((historyRow, index) => {
+          // 렌덤 키워드 선택 로직
+          const getRandomKeyword = (keywords: string[], fallback: string = 'Generated'): string => {
+            if (!keywords || keywords.length === 0) return fallback;
+
+            if (keywords.length === 1) return keywords[0];
+
+            // 시드 기반 랜덤 선택 (일관성을 위해)
+            // recordId를 기반으로 시드 생성하여 같은 레코드는 항상 같은 키워드 선택
+            const seed = historyRow.recordId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+            const randomIndex = seed % keywords.length;
+            
+            return keywords[randomIndex];
+          }
+
+          // 랜덤하게 선택된 키워드
+          const randomKeyword = getRandomKeyword(historyRow.keywords, historyRow.keyword);
+
           const items = [
             // 생성된 이미지 4개
             ...historyRow.images.filter(img => img.type === 'output').map(img => ({ 
@@ -145,7 +162,7 @@ export default function Gallery({
               data: img
             })),
             // 키워드
-            { type: 'keyword' as const, data: historyRow.keyword }
+            { type: 'keyword' as const, data: randomKeyword }
           ];
 
           // generatedRows와 겹치지 않도록 다른 seed 사용
@@ -154,12 +171,27 @@ export default function Gallery({
           return {
             items: shuffledItems,
             allImages: historyRow.images,
-            historyData: historyRow // 히스토리 데이터 추가
+            historyData: historyRow, // 히스토리 데이터 추가
+            // 🔍 디버깅용: 원본 키워드들과 선택된 키워드 정보
+            originalKeywords: historyRow.keywords,
+            selectedKeyword: randomKeyword
           };
         });
 
         // 히스토리 행들 추가
         rows.push(...historyRowsData);
+
+        // 🔍 디버깅용 로그 (개발 모드에서만)
+        // if (process.env.NODE_ENV === 'development') {
+        //   console.log('🎲 Random keyword selection results:');
+        //   historyRowsData.forEach((row, index) => {
+        //     console.log(`Row ${index + 1}:`, {
+        //       recordId: row.historyData?.recordId,
+        //       originalKeywords: row.originalKeywords,
+        //       selectedKeyword: row.selectedKeyword
+        //     });
+        //   });
+        // }
       }
 
       return rows;
