@@ -58,10 +58,41 @@ export default function Gallery({
   const [pinModalPosition, setPinModalPosition] = useState<{top: number, left: number, width: number, height: number} | null>(null);
   const [roomSearchTerm, setRoomSearchTerm] = useState('');
   const [isClient, setIsClient] = useState(false);
+  const [randomSeed] = useState(() => {
+    // 브라우저 세션 정보와 시간을 조합하여 고유한 시드 생성
+    const timestamp = Date.now();
+    const random = Math.random();
+    const sessionSeed = timestamp + random;
+    
+    console.log('🎯 Gallery session seed generated:', sessionSeed);
+    return sessionSeed;
+  });
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // 🎯 세션 기반 랜덤 키워드 선택 함수
+  const getRandomKeywordWithSessionSeed = (
+    keywords: string[], 
+    recordId: string, 
+    fallback: string = 'Generated'
+  ): string => {
+    if (!keywords || keywords.length === 0) {
+      return fallback;
+    }
+    
+    if (keywords.length === 1) {
+      return keywords[0];
+    }
+    
+    // recordId + 세션 시드를 조합하여 새로고침마다 바뀌지만 같은 세션에서는 일관성 유지
+    const combinedSeed = recordId + randomSeed.toString();
+    const numericSeed = combinedSeed.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const randomIndex = numericSeed % keywords.length;
+    
+    return keywords[randomIndex];
+  };
 
   const seededRandom = (seed: number) => {
     const x = Math.sin(seed) * 10000;
@@ -133,6 +164,14 @@ export default function Gallery({
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         });
         const historyRowsData = sortedHistoryImages.map((historyRow, index) => {
+
+          // 🎯 세션 기반 랜덤 키워드 선택
+          const randomKeyword = getRandomKeywordWithSessionSeed(
+            historyRow.keywords, 
+            historyRow.recordId, 
+            historyRow.keyword // fallback으로 기본 키워드 사용
+          );
+
           const items = [
             // 생성된 이미지 4개
             ...historyRow.images.filter(img => img.type === 'output').map(img => ({ 
@@ -145,7 +184,7 @@ export default function Gallery({
               data: img
             })),
             // 키워드
-            { type: 'keyword' as const, data: historyRow.keyword }
+            { type: 'keyword' as const, data: randomKeyword }
           ];
 
           // generatedRows와 겹치지 않도록 다른 seed 사용
@@ -154,12 +193,27 @@ export default function Gallery({
           return {
             items: shuffledItems,
             allImages: historyRow.images,
-            historyData: historyRow // 히스토리 데이터 추가
+            historyData: historyRow, // 히스토리 데이터 추가
+            // 🔍 디버깅용: 원본 키워드들과 선택된 키워드 정보
+            originalKeywords: historyRow.keywords,
+            selectedKeyword: randomKeyword
           };
         });
 
         // 히스토리 행들 추가
         rows.push(...historyRowsData);
+
+        // 🔍 디버깅용 로그 (개발 모드에서만)
+        // if (process.env.NODE_ENV === 'development') {
+        //   console.log('🎲 Random keyword selection results:');
+        //   historyRowsData.forEach((row, index) => {
+        //     console.log(`Row ${index + 1}:`, {
+        //       recordId: row.historyData?.recordId,
+        //       originalKeywords: row.originalKeywords,
+        //       selectedKeyword: row.selectedKeyword
+        //     });
+        //   });
+        // }
       }
 
       return rows;
