@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, createContext, useContext, ReactNode } from 'react'
+import React, { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react'
 import { User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
@@ -41,7 +41,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const router = useRouter()
 
   // 백엔드에서 프로필 정보 가져오기
-  const fetchProfile = async (forceRefresh = false) => {
+  const fetchProfile = useCallback(async (forceRefresh = false) => {
     try {
       if (!user && !forceRefresh) return
       
@@ -53,7 +53,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error) {
       console.error('Failed to fetch profile:', error)
     }
-  }
+  }, [user])
 
   const refreshProfile = async () => {
     await fetchProfile(true)
@@ -109,14 +109,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => {
       subscription.unsubscribe()
     }
-  }, [router])
+  }, [router, fetchProfile])
 
   // 사용자 변경 시 프로필 정보 가져오기
   useEffect(() => {
     if (user && !profile) {
       fetchProfile()
     }
-  }, [user, profile])
+  }, [user, profile, fetchProfile])
 
   const handleSignOut = async (): Promise<void> => {
     try {
