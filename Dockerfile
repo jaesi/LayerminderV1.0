@@ -12,6 +12,9 @@ WORKDIR /app
 # 4) Install poetry
 RUN pip install --no-cache-dir "poetry==1.8.2"
 
+# 5) only copy the poetry metadata
+COPY pyproject.toml poetry.lock* ./
+
 # 5) Export requiremets.txt(Only main)
 RUN poetry export -f requirements.txt --only main --without-hashes -o requirements.txt
 
