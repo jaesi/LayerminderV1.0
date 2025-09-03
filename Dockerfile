@@ -12,10 +12,13 @@ WORKDIR /app
 # 4) Install poetry
 RUN pip install --no-cache-dir "poetry==1.8.2"
 
-# 5) PyTorch + torchvision (CPU) install first
+# 5) Export requiremets.txt(Only main)
+RUN poetry export -f requirements.txt --only main --without-hashes -o requirements.txt
+
+# 6) PyTorch + torchvision (CPU) install first
 RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu \
-    torch==2.3.1 
-RUN pip install --no-cache-dir "pillow>=10.2.0"
+    torch==2.3.1 \
+&& pip install --no-cache-dir --prefer-binary -r requirements.txt
 
 # 6) COPY project meta file → install dependency (for build cache)
 COPY pyproject.toml poetry.lock* ./
