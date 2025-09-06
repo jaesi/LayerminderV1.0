@@ -1,5 +1,5 @@
 # Pydantic 모델 정의할 곳
-from pydantic import BaseModel, Field, EmailStr, HttpUrl, ConfigDict
+from pydantic import BaseModel, Field, EmailStr, HttpUrl, AnyHttpUrl, ConfigDict
 from uuid import UUID
 from typing import List, Dict, Optional, Any
 from datetime import datetime
@@ -17,10 +17,10 @@ class SocialLoginResponse(BaseModel):
 
 # After log-in
 class ProfileResponse(BaseModel):
-    id: str
+    id: UUID
     email: Optional[EmailStr] = None
     nickname: Optional[str] = None
-    user_metadata: Dict[str, Any]
+    avatar_url: Optional[AnyHttpUrl] = None
 
 # History Session
 class HistorySession(BaseModel):
