@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { signInWithGoogle, signInWithKakao } from '@/lib/auth'
@@ -12,10 +12,12 @@ export default function LandingPage() {
   const [isLoading, setIsLoading] = useState(false)
 
   // 이미 로그인된 경우 대시보드로 리다이렉트
-  if (!loading && user) {
-    router.push('/dashboard')
-    return null
-  }
+  useEffect(() => {
+    if (!loading && user) {
+      router.push('/dashboard')
+    }
+  }, [loading, user, router])
+
 
   const handleKakaoLogin = async () => {
     setIsLoading(true)

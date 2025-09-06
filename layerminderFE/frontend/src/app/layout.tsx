@@ -16,6 +16,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Layer Minder",
   description: "AI-powered design generation platform",
+  icons: {
+    icon: '/images/logo2.png',
+    shortcut: '/images/logo2.png',
+    apple: '/images/logo2.png',
+  },
 };
 
 export default function RootLayout({

@@ -12,6 +12,7 @@ import {
   AddImageToRoomRequest,
   RoomImage,
   HistoryImagesResponse,
+  ProcessedSSEEvent
 } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
@@ -67,18 +68,18 @@ export interface BackendDoneData {
 }
 
 // 통합 이벤트 타입
-export interface ProcessedSSEEvent {
-  type: 'images_generated' | 'story_generated' | 'keywords_generated' | 'recommendation_ready' | 'error' | 'complete' | 'ping';
-  data: {
-    image_urls?: string[];
-    story?: string;
-    keywords?: string[];
-    recommendationUrl?: string;
-    recommendationId?: string;
-    error?: string;
-    timestamp?: number;
-  };
-}
+// export interface ProcessedSSEEvent {
+//   type: 'images_generated' | 'story_generated' | 'keywords_generated' | 'recommendation_ready' | 'error' | 'complete' | 'ping';
+//   data: {
+//     image_urls?: string[];
+//     story?: string;
+//     keywords?: string[];
+//     recommendationUrl?: string;
+//     recommendationId?: string;
+//     error?: string;
+//     timestamp?: number;
+//   };
+// }
 
 /**
  * SSE 연결

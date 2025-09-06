@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Navigation from '@/components/dashboard/Navigation';
 import Sidebar from '@/components/dashboard/Sidebar';
 import Gallery from '@/components/dashboard/Gallery';
@@ -15,7 +15,8 @@ import RoomModal from '@/components/dashboard/RoomModal';
 import SaveToRoomModal from '@/components/dashboard/SaveToRoomModal';
 import { createRoom, updateRoom } from '@/lib/api';
 import { CreateRoomRequest, UpdateRoomRequest } from '@/types';
-import { getRoomImages, RoomImage } from '@/lib/api';
+import { getRoomImages } from '@/lib/api';
+import { RoomImage } from '@/types';
 import { removeImageFromRoom } from '@/lib/api';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -43,6 +44,11 @@ interface AnimationState {
 
 export default function Dashboard() {
   const { user, loading } = useAuth();
+  
+  // 데이터 로드 및 상태 관리용 ref
+  const initialLoadComplete = useRef(false);
+  const isLoadingData = useRef(false);
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [pinnedImages, setPinnedImages] = useState<number[]>([]);
   const [topPanelMode, setTopPanelMode] = useState<'brand' | 'generate' | 'details'>('brand');
@@ -99,33 +105,195 @@ export default function Dashboard() {
   }, [selectedRoomId, userHistorySession?.session_id]);
 
   // Room 목록 로드 함수
-  const loadRooms = async () => {
-    if (user) {
-      setRoomsLoading(true);
-      try {
-        const roomList = await getRooms({ mine: true, size: 100 });
-        if (roomList) {
-          setRooms(roomList);
-          console.log('✅ Rooms loaded:', roomList.length);
-        }
-      } catch (error) {
-        console.error('Failed to load rooms:', error);
-      } finally {
-        setRoomsLoading(false);
+  // const loadRooms = useCallback(async () => {
+  //   if (user) {
+  //     setRoomsLoading(true);
+  //     try {
+  //       const roomList = await getRooms({ mine: true, size: 100 });
+  //       if (roomList) {
+  //         setRooms(roomList);
+  //         console.log('✅ Rooms loaded:', roomList.length);
+  //       }
+  //     } catch (error) {
+  //       console.error('Failed to load rooms:', error);
+  //     } finally {
+  //       setRoomsLoading(false);
+  //     }
+  //   }
+  // },[user]);
+
+   // 히스토리 이미지 로드 함수
+  // const loadHistoryImages = useCallback(async () => {
+  //   if (user) {
+  //     setHistoryImagesLoading(true);
+  //     try {
+  //       const historyData = await getUserHistoryImages();
+  //       console.log('🔍 [DEBUG] API에서 받은 원본 historyData:', historyData);
+
+  //       if (historyData) {
+  //         // 백엔드 데이터를 프론트엔드 형식으로 변환
+  //         const processedRows: ProcessedHistoryRow[] = historyData.map((record, index) => {
+  //           const images = [
+  //             {
+  //               id: Date.now() + index * 10 + 1,
+  //               src: record.gen_image_1,
+  //               isPinned: false,
+  //               type: 'output' as const,
+  //               imageId: record.gen_image_id_1
+  //             },
+  //             {
+  //               id: Date.now() + index * 10 + 2,
+  //               src: record.gen_image_2,
+  //               isPinned: false,
+  //               type: 'output' as const,
+  //               imageId: record.gen_image_id_2
+  //             },
+  //             {
+  //               id: Date.now() + index * 10 + 3,
+  //               src: record.gen_image_3,
+  //               isPinned: false,
+  //               type: 'output' as const,
+  //               imageId: record.gen_image_id_3
+  //             },
+  //             {
+  //               id: Date.now() + index * 10 + 4,
+  //               src: record.gen_image_4,
+  //               isPinned: false,
+  //               type: 'output' as const,
+  //               imageId: record.gen_image_id_4
+  //             },
+  //             {
+  //               id: Date.now() + index * 10 + 5,
+  //               src: record.reference_image_url,
+  //               isPinned: false,
+  //               type: 'recommendation' as const,
+  //               imageId: record.reference_image_id,
+  //             }
+  //           ];
+
+  //           return {
+  //             recordId: record.record_id,
+  //             keyword: record.keywords[0] || 'Generated',
+  //             keywords: record.keywords,
+  //             images,
+  //             createdAt: record.created_at,
+  //             createdDay: record.created_day
+  //           };
+  //         });
+
+  //         setHistoryImages(processedRows);
+  //         console.log('✅ History images processed:', processedRows.length);
+  //       }
+  //     } catch (error) {
+  //       console.error('Failed to load history images:', error);
+  //     } finally {
+  //       setHistoryImagesLoading(false);
+  //     }
+  //   }
+  // },[user]);
+
+  // Room 이미지 로드 함수
+  const loadRoomImages = async (roomId: string) => {
+    setRoomImagesLoading(true);
+    try {
+      const images = await getRoomImages(roomId);
+      if (images) {
+        setRoomImages(images);
+        console.log('✅ Room images loaded:', images.length);
       }
+    } catch (error) {
+      console.error('Failed to load room images:', error);
+    } finally {
+      setRoomImagesLoading(false);
     }
   };
 
-   // 히스토리 이미지 로드 함수
-  const loadHistoryImages = async () => {
-    if (user) {
-      setHistoryImagesLoading(true);
-      try {
-        const historyData = await getUserHistoryImages();
-        console.log('🔍 [DEBUG] API에서 받은 원본 historyData:', historyData);
+  // 사용자의 단일 히스토리 세션 로드
+  // const loadUserHistorySession = useCallback(async () => {
+  //   if (user) {
+  //     try {
+  //       const session = await getUserHistorySession();
+  //       if (session) {
+  //         setUserHistorySession({
+  //           session_id: session.session_id,
+  //           user_id: session.user_id,
+  //           created_at: session.created_at,
+  //           updated_at: session.updated_at
+  //         });
+  //         console.log('✅ User history session loaded:', session.session_id);
+  //       }
+  //     } catch (error) {
+  //       console.error('Failed to load user history session:', error);
+  //     }
+  //   }
+  // }, [user]);
 
+  // 1. currentGeneratingRowId 변화 추적
+  // useEffect(() => {
+  //   console.log('🆔 currentGeneratingRowId changed:', {
+  //     newValue: currentGeneratingRowId,
+  //     timestamp: new Date().toISOString(),
+  //     stack: new Error().stack?.split('\n').slice(1, 4)
+  //   });
+  // }, [currentGeneratingRowId]);
+
+  // 2. isGenerating 변화 추적  
+  // useEffect(() => {
+  //   console.log('🎬 isGenerating changed:', {
+  //     newValue: isGenerating,
+  //     currentGeneratingRowId,
+  //     timestamp: new Date().toISOString()
+  //   });
+  // }, [isGenerating]);
+
+  // 초기 데이터 로드
+  // useEffect(() => {
+  //   const loadData = async () => {
+  //     if (user) {
+  //       try {
+  //         // 단일 히스토리 세션 로드
+  //         await loadUserHistorySession();
+  //         // 히스토리 이미지 로드
+  //         await loadHistoryImages();
+  //         // Room 목록 로드
+  //         await loadRooms();
+
+  //       } catch (error) {
+  //         console.error('Failed to load data:', error);
+  //       }
+  //     }
+  //   };
+  //   loadData();
+  // }, [user, loadUserHistorySession, loadHistoryImages, loadRooms]);
+
+  useEffect(() => {
+    // 이미 로드했거나 로딩 중이거나 사용자가 없으면 실행하지 않음
+    if (initialLoadComplete.current || isLoadingData.current || !user) {
+      return;
+    }
+
+    const loadInitialData = async () => {
+      console.log('🚀 Starting initial data load - ONCE ONLY');
+      isLoadingData.current = true;
+
+      try {
+        // 1. 히스토리 세션 로드
+        const session = await getUserHistorySession();
+        if (session) {
+          setUserHistorySession({
+            session_id: session.session_id,
+            user_id: session.user_id,
+            created_at: session.created_at,
+            updated_at: session.updated_at
+          });
+          console.log('✅ User history session loaded:', session.session_id);
+        }
+
+        // 2. 히스토리 이미지 로드
+        setHistoryImagesLoading(true);
+        const historyData = await getUserHistoryImages();
+        
         if (historyData) {
-          // 백엔드 데이터를 프론트엔드 형식으로 변환
           const processedRows: ProcessedHistoryRow[] = historyData.map((record, index) => {
             const images = [
               {
@@ -178,96 +346,121 @@ export default function Dashboard() {
           setHistoryImages(processedRows);
           console.log('✅ History images processed:', processedRows.length);
         }
-      } catch (error) {
-        console.error('Failed to load history images:', error);
-      } finally {
         setHistoryImagesLoading(false);
-      }
-    }
-  };
 
-  // Room 이미지 로드 함수
-  const loadRoomImages = async (roomId: string) => {
-    setRoomImagesLoading(true);
-    try {
-      const images = await getRoomImages(roomId);
-      if (images) {
-        setRoomImages(images);
-        console.log('✅ Room images loaded:', images.length);
-      }
-    } catch (error) {
-      console.error('Failed to load room images:', error);
-    } finally {
-      setRoomImagesLoading(false);
-    }
-  };
-
-  // 사용자의 단일 히스토리 세션 로드
-  const loadUserHistorySession = async () => {
-    if (user) {
-      try {
-        const session = await getUserHistorySession();
-        if (session) {
-          setUserHistorySession({
-            session_id: session.session_id,
-            user_id: session.user_id,
-            created_at: session.created_at,
-            updated_at: session.updated_at
-          });
-          console.log('✅ User history session loaded:', session.session_id);
+        // 3. 룸 목록 로드
+        setRoomsLoading(true);
+        const roomList = await getRooms({ mine: true, size: 100 });
+        if (roomList) {
+          setRooms(roomList);
+          console.log('✅ Rooms loaded:', roomList.length);
         }
+        setRoomsLoading(false);
+
+        // ✅ 완료 표시 - 이제 다시는 실행되지 않음
+        initialLoadComplete.current = true;
+        console.log('🎉 Initial data load COMPLETED - will never run again');
+
       } catch (error) {
-        console.error('Failed to load user history session:', error);
-      }
-    }
-  };
-
-  // 1. currentGeneratingRowId 변화 추적
-  useEffect(() => {
-    console.log('🆔 currentGeneratingRowId changed:', {
-      newValue: currentGeneratingRowId,
-      timestamp: new Date().toISOString(),
-      stack: new Error().stack?.split('\n').slice(1, 4)
-    });
-  }, [currentGeneratingRowId]);
-
-  // 2. isGenerating 변화 추적  
-  useEffect(() => {
-    console.log('🎬 isGenerating changed:', {
-      newValue: isGenerating,
-      currentGeneratingRowId,
-      timestamp: new Date().toISOString()
-    });
-  }, [isGenerating]);
-
-  // 초기 데이터 로드
-  useEffect(() => {
-    const loadData = async () => {
-      if (user) {
-        try {
-
-          // 단일 히스토리 세션 로드
-          await loadUserHistorySession();
-          // 히스토리 이미지 로드
-          await loadHistoryImages();
-          // Room 목록 로드
-          await loadRooms();
-
-        } catch (error) {
-          console.error('Failed to load data:', error);
-        }
+        console.error('❌ Failed to load initial data:', error);
+      } finally {
+        isLoadingData.current = false;
       }
     };
-    loadData();
-  }, [user]);
+
+    loadInitialData();
+  }, [user]); // ✅ user만 의존성으로 설정
+
+  // ✅ 추가: 수동 새로고침용 함수들 (별도로 분리)
+  const refreshRooms = async () => {
+    if (roomsLoading) return;
+    
+    setRoomsLoading(true);
+    try {
+      const roomList = await getRooms({ mine: true, size: 100 });
+      if (roomList) {
+        setRooms(roomList);
+        console.log('🔄 Rooms refreshed:', roomList.length);
+      }
+    } catch (error) {
+      console.error('Failed to refresh rooms:', error);
+    } finally {
+      setRoomsLoading(false);
+    }
+  };
+
+  const refreshHistoryImages = async () => {
+    if (historyImagesLoading) return;
+    
+    setHistoryImagesLoading(true);
+    try {
+      const historyData = await getUserHistoryImages();
+      if (historyData) {
+        // 위와 동일한 처리 로직
+        const processedRows: ProcessedHistoryRow[] = historyData.map((record, index) => {
+          const images = [
+          {
+            id: Date.now() + index * 10 + 1,
+            src: record.gen_image_1,
+            isPinned: false,
+            type: 'output' as const,
+            imageId: record.gen_image_id_1
+          },
+          {
+            id: Date.now() + index * 10 + 2,
+            src: record.gen_image_2,
+            isPinned: false,
+            type: 'output' as const,
+            imageId: record.gen_image_id_2
+          },
+          {
+            id: Date.now() + index * 10 + 3,
+            src: record.gen_image_3,
+            isPinned: false,
+            type: 'output' as const,
+            imageId: record.gen_image_id_3
+          },
+          {
+            id: Date.now() + index * 10 + 4,
+            src: record.gen_image_4,
+            isPinned: false,
+            type: 'output' as const,
+            imageId: record.gen_image_id_4
+          },
+          {
+            id: Date.now() + index * 10 + 5,
+            src: record.reference_image_url,
+            isPinned: false,
+            type: 'recommendation' as const,
+            imageId: record.reference_image_id,
+          }
+        ];
+    
+        return {
+          recordId: record.record_id,
+          keyword: record.keywords[0] || 'Generated',
+          keywords: record.keywords,
+          images,
+          createdAt: record.created_at,
+          createdDay: record.created_day
+        };
+        });
+        setHistoryImages(processedRows);
+      }
+    } catch (error) {
+      console.error('Failed to refresh history images:', error);
+    } finally {
+      setHistoryImagesLoading(false);
+    }
+  };
 
   // 로딩 중이거나 로그인되지 않은 경우 처리
-  if (loading) {
+  if (loading || !initialLoadComplete.current) {
     return (
       <div className="h-screen flex items-center justify-center" style={{ backgroundColor: '#edeae3' }}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-2 text-gray-600">로딩 중...</p>
+          <p className="mt-2 text-gray-600">{loading ? '인증 확인 중...' : '데이터 로딩 중...'}</p>
         </div>
       </div>
     );
@@ -315,9 +508,9 @@ export default function Dashboard() {
           );
 
           if (roomImage) {
-            await removeImageFromRoom(roomId, roomImage.id);
+            await removeImageFromRoom(roomId, roomImage.room_image_id);
             await loadRoomImages(roomId); // 룸 이미지 새로고침
-            await loadRooms(); // 룸 목록 새로고침 (pin_count 업데이트)
+            await refreshRooms(); // 룸 목록 새로고침 (pin_count 업데이트)
           }
         } catch (error) {
           console.error('Failed to remove image from room:', error);
@@ -402,7 +595,7 @@ export default function Dashboard() {
             await loadRoomImages(roomId);
           }
 
-          await loadRooms(); // Room 목록 새로고침 (pin_count 업데이트)
+          await refreshRooms(); // Room 목록 새로고침 (pin_count 업데이트)
           alert(`이미지가 "${rooms.find(r => r.id === roomId)?.name}" Room에 저장되었습니다.`);
         } else {
           alert('이미지 핀에 실패했습니다.');
@@ -428,7 +621,7 @@ export default function Dashboard() {
       // Room 모드: Room 이미지 목록 새로고침
       if (selectedRoomId) {
         loadRoomImages(selectedRoomId);
-        loadRooms(); // pin_count 업데이트
+        refreshRooms(); // pin_count 업데이트
       }
     } else {
       // History 모드: 기존에 생성 중이던 행이 있으면 업데이트, 없으면 새로 추가
@@ -626,12 +819,12 @@ export default function Dashboard() {
     setSelectedRowData(rowData);
 
     // 생성 중인 행인지 확인
-    const isGeneratingRow = currentGeneratingRowId && 
-      generatedRows.some(row => row.id === currentGeneratingRowId && 
-        row.images.some(img => 
-          rowData.images.some(selectedImg => selectedImg.src === img.src)
-        )
-      );
+    // const isGeneratingRow = currentGeneratingRowId && 
+    //   generatedRows.some(row => row.id === currentGeneratingRowId && 
+    //     row.images.some(img => 
+    //       rowData.images.some(selectedImg => selectedImg.src === img.src)
+    //     )
+    //   );
     
     // 새로 생성된 이미지인 경우 generate 모드로, 기존 이미지인 경우 details 모드로
     const isNewlyGenerated = generatedRows.some(row => 
@@ -666,7 +859,7 @@ export default function Dashboard() {
     setTopPanelMode('brand');
     setSelectedRowData(null);
     setRoomImages([]); 
-    loadHistoryImages(); 
+    refreshHistoryImages(); 
   };
 
   // Room 선택 핸들러
@@ -703,7 +896,7 @@ export default function Dashboard() {
         }
         
         // 목록 새로고침
-        await loadRooms();
+        await refreshRooms();
         console.log('✅ Room list refreshed');
       } else {
         console.error('❌ Room deletion failed');
@@ -740,7 +933,7 @@ export default function Dashboard() {
       const updatedRoom = await updateRoom(room.id, updateData);
       if (updatedRoom) {
         console.log('✅ Room visibility toggled:', updatedRoom.id);
-        await loadRooms(); // 목록 새로고침
+        await refreshRooms(); // 목록 새로고침
       }
     } catch (error) {
       console.error('Failed to toggle room visibility:', error);
@@ -758,13 +951,13 @@ export default function Dashboard() {
         const newRoom = await createRoom(data as CreateRoomRequest);
         if (newRoom) {
           console.log('✅ Room created:', newRoom.id);
-          await loadRooms(); // 목록 새로고침
+          await refreshRooms(); // 목록 새로고침
         }
       } else if (roomModalMode === 'edit' && editingRoom) {
         const updatedRoom = await updateRoom(editingRoom.id, data as UpdateRoomRequest);
         if (updatedRoom) {
           console.log('✅ Room updated:', updatedRoom.id);
-          await loadRooms(); // 목록 새로고침
+          await refreshRooms(); // 목록 새로고침
         }
       }
     } catch (error) {
@@ -790,7 +983,7 @@ export default function Dashboard() {
       console.log('Saving history to room:', { historyId, roomId });
       
       alert('히스토리가 룸에 저장되었습니다.');
-      await loadRooms(); // Room 목록 새로고침 (pin_count 업데이트)
+      await refreshRooms(); // Room 목록 새로고침 (pin_count 업데이트)
     } catch (error) {
       console.error('Failed to save history to room:', error);
       alert('룸에 저장하는데 실패했습니다.');
@@ -812,7 +1005,7 @@ export default function Dashboard() {
           // Room 이미지 목록 새로고침
           await loadRoomImages(selectedRoomId);
           // Room 목록도 새로고침 (pin_count 업데이트)
-          await loadRooms();
+          await refreshRooms();
         } else {
           alert('이미지 제거에 실패했습니다.');
         }
@@ -837,7 +1030,7 @@ export default function Dashboard() {
           onHistoryToggle={handleHistoryToggle} 
           onRoomSelect={handleRoomSelect}
           onRoomDelete={handleRoomDelete}
-          onRoomsRefresh={loadRooms}
+          onRoomsRefresh={refreshRooms}
           onCreateRoom={handleCreateRoom}
           onEditRoom={handleEditRoom}
           onToggleRoomVisibility={handleToggleRoomVisibility}
