@@ -44,21 +44,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const profileLoadComplete = useRef(false)
   const isLoadingProfile = useRef(false)
 
-  // 백엔드에서 프로필 정보 가져오기
-  // const fetchProfile = useCallback(async (forceRefresh = false) => {
-  //   try {
-  //     if (!user && !forceRefresh) return
-      
-  //     const profileData = await getProfileFromBackend()
-  //     if (profileData) {
-  //       setProfile(profileData)
-  //       console.log('✅ Profile loaded from backend:', profileData.email)
-  //     }
-  //   } catch (error) {
-  //     console.error('Failed to fetch profile:', error)
-  //   }
-  // }, [user])
-
   const loadProfileOnce = async () => {
     // 이미 로드했거나 로딩 중이거나 사용자가 없으면 스킵
     if (profileLoadComplete.current || isLoadingProfile.current || !user) {
@@ -72,7 +57,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const profileData = await getProfileFromBackend()
       if (profileData) {
         setProfile(profileData)
-        profileLoadComplete.current = true // ✅ 한 번 로드하면 다시 로드하지 않음
+        profileLoadComplete.current = true
         console.log('✅ Profile loaded from backend:', profileData.email)
       }
     } catch (error) {
@@ -82,16 +67,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }
 
-  // ✅ 수동 새로고침용 함수 (외부에서 호출 가능)
+  // 수동 새로고침용 함수
   const refreshProfile = async () => {
     profileLoadComplete.current = false // 강제로 다시 로드 허용
     isLoadingProfile.current = false
     await loadProfileOnce()
   }
-
-  // const refreshProfile = async () => {
-  //   await fetchProfile(true)
-  // }
 
   useEffect(() => {
     // 초기 세션 확인
@@ -144,13 +125,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       subscription.unsubscribe()
     }
   }, [router])
-
-  // 사용자 변경 시 프로필 정보 가져오기
-  // useEffect(() => {
-  //   if (user && !profile) {
-  //     fetchProfile()
-  //   }
-  // }, [user, profile, fetchProfile])
 
   useEffect(() => {
     if (user && !profileLoadComplete.current && !isLoadingProfile.current) {

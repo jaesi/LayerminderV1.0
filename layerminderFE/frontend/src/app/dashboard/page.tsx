@@ -104,94 +104,6 @@ export default function Dashboard() {
     };
   }, [selectedRoomId, userHistorySession?.session_id]);
 
-  // Room 목록 로드 함수
-  // const loadRooms = useCallback(async () => {
-  //   if (user) {
-  //     setRoomsLoading(true);
-  //     try {
-  //       const roomList = await getRooms({ mine: true, size: 100 });
-  //       if (roomList) {
-  //         setRooms(roomList);
-  //         console.log('✅ Rooms loaded:', roomList.length);
-  //       }
-  //     } catch (error) {
-  //       console.error('Failed to load rooms:', error);
-  //     } finally {
-  //       setRoomsLoading(false);
-  //     }
-  //   }
-  // },[user]);
-
-   // 히스토리 이미지 로드 함수
-  // const loadHistoryImages = useCallback(async () => {
-  //   if (user) {
-  //     setHistoryImagesLoading(true);
-  //     try {
-  //       const historyData = await getUserHistoryImages();
-  //       console.log('🔍 [DEBUG] API에서 받은 원본 historyData:', historyData);
-
-  //       if (historyData) {
-  //         // 백엔드 데이터를 프론트엔드 형식으로 변환
-  //         const processedRows: ProcessedHistoryRow[] = historyData.map((record, index) => {
-  //           const images = [
-  //             {
-  //               id: Date.now() + index * 10 + 1,
-  //               src: record.gen_image_1,
-  //               isPinned: false,
-  //               type: 'output' as const,
-  //               imageId: record.gen_image_id_1
-  //             },
-  //             {
-  //               id: Date.now() + index * 10 + 2,
-  //               src: record.gen_image_2,
-  //               isPinned: false,
-  //               type: 'output' as const,
-  //               imageId: record.gen_image_id_2
-  //             },
-  //             {
-  //               id: Date.now() + index * 10 + 3,
-  //               src: record.gen_image_3,
-  //               isPinned: false,
-  //               type: 'output' as const,
-  //               imageId: record.gen_image_id_3
-  //             },
-  //             {
-  //               id: Date.now() + index * 10 + 4,
-  //               src: record.gen_image_4,
-  //               isPinned: false,
-  //               type: 'output' as const,
-  //               imageId: record.gen_image_id_4
-  //             },
-  //             {
-  //               id: Date.now() + index * 10 + 5,
-  //               src: record.reference_image_url,
-  //               isPinned: false,
-  //               type: 'recommendation' as const,
-  //               imageId: record.reference_image_id,
-  //             }
-  //           ];
-
-  //           return {
-  //             recordId: record.record_id,
-  //             keyword: record.keywords[0] || 'Generated',
-  //             keywords: record.keywords,
-  //             images,
-  //             createdAt: record.created_at,
-  //             createdDay: record.created_day
-  //           };
-  //         });
-
-  //         setHistoryImages(processedRows);
-  //         console.log('✅ History images processed:', processedRows.length);
-  //       }
-  //     } catch (error) {
-  //       console.error('Failed to load history images:', error);
-  //     } finally {
-  //       setHistoryImagesLoading(false);
-  //     }
-  //   }
-  // },[user]);
-
   // Room 이미지 로드 함수
   const loadRoomImages = async (roomId: string) => {
     setRoomImagesLoading(true);
@@ -207,64 +119,6 @@ export default function Dashboard() {
       setRoomImagesLoading(false);
     }
   };
-
-  // 사용자의 단일 히스토리 세션 로드
-  // const loadUserHistorySession = useCallback(async () => {
-  //   if (user) {
-  //     try {
-  //       const session = await getUserHistorySession();
-  //       if (session) {
-  //         setUserHistorySession({
-  //           session_id: session.session_id,
-  //           user_id: session.user_id,
-  //           created_at: session.created_at,
-  //           updated_at: session.updated_at
-  //         });
-  //         console.log('✅ User history session loaded:', session.session_id);
-  //       }
-  //     } catch (error) {
-  //       console.error('Failed to load user history session:', error);
-  //     }
-  //   }
-  // }, [user]);
-
-  // 1. currentGeneratingRowId 변화 추적
-  // useEffect(() => {
-  //   console.log('🆔 currentGeneratingRowId changed:', {
-  //     newValue: currentGeneratingRowId,
-  //     timestamp: new Date().toISOString(),
-  //     stack: new Error().stack?.split('\n').slice(1, 4)
-  //   });
-  // }, [currentGeneratingRowId]);
-
-  // 2. isGenerating 변화 추적  
-  // useEffect(() => {
-  //   console.log('🎬 isGenerating changed:', {
-  //     newValue: isGenerating,
-  //     currentGeneratingRowId,
-  //     timestamp: new Date().toISOString()
-  //   });
-  // }, [isGenerating]);
-
-  // 초기 데이터 로드
-  // useEffect(() => {
-  //   const loadData = async () => {
-  //     if (user) {
-  //       try {
-  //         // 단일 히스토리 세션 로드
-  //         await loadUserHistorySession();
-  //         // 히스토리 이미지 로드
-  //         await loadHistoryImages();
-  //         // Room 목록 로드
-  //         await loadRooms();
-
-  //       } catch (error) {
-  //         console.error('Failed to load data:', error);
-  //       }
-  //     }
-  //   };
-  //   loadData();
-  // }, [user, loadUserHistorySession, loadHistoryImages, loadRooms]);
 
   useEffect(() => {
     // 이미 로드했거나 로딩 중이거나 사용자가 없으면 실행하지 않음
@@ -357,7 +211,6 @@ export default function Dashboard() {
         }
         setRoomsLoading(false);
 
-        // ✅ 완료 표시 - 이제 다시는 실행되지 않음
         initialLoadComplete.current = true;
         console.log('🎉 Initial data load COMPLETED - will never run again');
 
@@ -369,9 +222,9 @@ export default function Dashboard() {
     };
 
     loadInitialData();
-  }, [user]); // ✅ user만 의존성으로 설정
+  }, [user]); 
 
-  // ✅ 추가: 수동 새로고침용 함수들 (별도로 분리)
+  // 수동 새로고침용 함수들 (별도로 분리)
   const refreshRooms = async () => {
     if (roomsLoading) return;
     
@@ -667,22 +520,6 @@ export default function Dashboard() {
         recommendationVisible: false});
       setIsGenerating(false);
     }, 500); // 100ms 지연
-
-    // // 생성 완료 후 상태 초기화
-    // setCurrentGeneratingRowId(null);
-
-    // // 애니메이션 상태 초기화 (생성 완료 후)
-    // setAnimationState({
-    //   animatedImages: [],
-    //   animatedImageIds: [],
-    //   imageAnimationComplete: false,
-    //   animatedStoryText: '',
-    //   storyAnimationComplete: false,
-    //   animatedKeywords: [],
-    //   keywordAnimationComplete: false,
-    //   recommendationVisible: false
-    // });
-    // setIsGenerating(false);
   };
 
   // 생성 모드 변경 핸들러
