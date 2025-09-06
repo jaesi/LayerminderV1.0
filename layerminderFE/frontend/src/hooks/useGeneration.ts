@@ -145,7 +145,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
     currentGenerationRef.current = null;
     generationResultRef.current = {}; // 결과도 초기화
     clearAnimationTimers();
-  }, []);
+  }, [clearAnimationTimers]);
 
   // 컴포넌트 언마운트 시 정리
   useEffect(() => {

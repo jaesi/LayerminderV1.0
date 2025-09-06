@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { Menu, LogOut, User as UserIcon } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -14,6 +15,10 @@ export default function Navigation({ onToggleSidebar }: NavigationProps) {
     }
   };
 
+  const handleInstagram = () => {
+    window.open('https://www.instagram.com/layerminder/', '_blank', 'noopener,noreferrer');
+  }
+
   // 사용자 정보 우선순위: 백엔드 프로필 > Supabase user
   const displayName = profile?.user_metadata?.name || user?.user_metadata?.name || user?.email || '사용자';
   const avatarUrl = profile?.user_metadata?.avatar_url || user?.user_metadata?.avatar_url;
@@ -23,7 +28,13 @@ export default function Navigation({ onToggleSidebar }: NavigationProps) {
       <div className="px-4 h-16 flex items-center justify-between">
         {/* 로고 영역 */}
         <div className="flex items-center gap-3">
-          <img src="/images/logo.png" alt="Logo" className="h-4" />
+          <Image 
+            src="/images/logo.png" 
+            alt="Logo" 
+            width={80}
+            height={16}
+            className="h-4"
+          />
         </div>
         
         {/* 우측 메뉴 */}
@@ -33,9 +44,11 @@ export default function Navigation({ onToggleSidebar }: NavigationProps) {
               {/* 사용자 아바타 및 정보 */}
               <div className="flex items-center gap-2">
                 {avatarUrl ? (
-                  <img 
+                  <Image 
                     src={avatarUrl} 
                     alt="Profile" 
+                    width={32}
+                    height={32}
                     className="w-8 h-8 rounded-full object-cover"
                   />
                 ) : (
@@ -64,8 +77,17 @@ export default function Navigation({ onToggleSidebar }: NavigationProps) {
               </button>
             </div>
           )}
-          
-          <div className="text-sm text-gray-600">@IG</div>
+
+          {/* 인스타그램 링크 */}
+          <button
+            onClick={handleInstagram}
+            className="text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-2 py-1 rounded transition-colors"
+            title="Instagram"
+          >
+            @IG
+          </button>
+
+          {/* 햄버거 버튼 */}
           <button 
             onClick={onToggleSidebar}
             className="p-2 hover:bg-gray-100 rounded"

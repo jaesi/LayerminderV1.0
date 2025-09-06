@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Pin, X, Trash2 } from 'lucide-react';
+import Image from 'next/image';
 // import { dummyImages, keywords } from '@/data/dummyData';
 import { HistorySession, GeneratedRow, RoomImage, LayerRoom, ProcessedHistoryRow } from '@/types';
 
@@ -43,10 +44,8 @@ export default function Gallery({
   pinnedImages, 
   onRowSelect,
   viewMode,
-  selectedHistoryId,
   selectedRoomId,
   generatedRows,
-  historySessions,
   roomImages,
   roomImagesLoading,
   rooms,
@@ -59,9 +58,41 @@ export default function Gallery({
   const [roomSearchTerm, setRoomSearchTerm] = useState('');
   const [isClient, setIsClient] = useState(false);
 
+  const [randomSeed] = useState(() => {
+    // 브라우저 세션 정보와 시간을 조합하여 고유한 시드 생성
+    const timestamp = Date.now();
+    const random = Math.random();
+    const sessionSeed = timestamp + random;
+    
+    console.log('🎯 Gallery session seed generated:', sessionSeed);
+    return sessionSeed;
+  });
+
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // 🎯 세션 기반 랜덤 키워드 선택 함수
+  const getRandomKeywordWithSessionSeed = (
+    keywords: string[], 
+    recordId: string, 
+    fallback: string = 'Generated'
+  ): string => {
+    if (!keywords || keywords.length === 0) {
+      return fallback;
+    }
+    
+    if (keywords.length === 1) {
+      return keywords[0];
+    }
+    
+    // recordId + 세션 시드를 조합하여 새로고침마다 바뀌지만 같은 세션에서는 일관성 유지
+    const combinedSeed = recordId + randomSeed.toString();
+    const numericSeed = combinedSeed.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const randomIndex = numericSeed % keywords.length;
+    
+    return keywords[randomIndex];
+  };
 
   const seededRandom = (seed: number) => {
     const x = Math.sin(seed) * 10000;
@@ -78,145 +109,166 @@ export default function Gallery({
     return shuffled;
   };
 
-// Gallery.tsx의 getDisplayRows 함수 수정
+  const getDisplayRows = () => {
+    if (viewMode === 'history') {
+      // 히스토리 로딩 중
+      if (historyImagesLoading) {
+        return [];
+      }
 
-const getDisplayRows = () => {
-  if (viewMode === 'history') {
-    // 히스토리 로딩 중
-    if (historyImagesLoading) {
-      return [];
-    }
+      const rows = [];
 
-    const rows = [];
+      // 1. 먼저 새로 생성된 이미지들 추가 (최신이 맨 위에)
+      const historyGeneratedRows = generatedRows;
+      const generatedRowsData = historyGeneratedRows.map((genRow, index) => {
+        const outputImages = genRow.images.filter(img => img.type === 'output');
+        const keyword = genRow.keyword;
 
-    // 1. 먼저 새로 생성된 이미지들 추가 (최신이 맨 위에)
-    const historyGeneratedRows = generatedRows;
-    const generatedRowsData = historyGeneratedRows.map((genRow, index) => {
-      const outputImages = genRow.images.filter(img => img.type === 'output');
-      const keyword = genRow.keyword;
-
-      const items = [
-        ...outputImages.map(img => ({ type: 'output' as const, data: img})),
-        ...(genRow.recommendationImage ? [{
-          type: 'recommendation' as const, 
-          data: { 
-            id: Date.now() + 9999 + index, 
-            src: genRow.recommendationImage, 
-            isPinned: false, 
-            type: 'recommendation' as const 
-          }
-        }] : []),
-        { type: 'keyword' as const, data: keyword }
-      ];
-
-      const shuffledItems = isClient ? shuffleArray(items, index * 1000) : items;
-      
-      return {
-        items: shuffledItems,
-        allImages: [
-          ...outputImages,
-          ...(genRow.recommendationImage ? [{
-            id: Date.now() + 9999 + index,
-            src: genRow.recommendationImage,
-            isPinned: false,
-            type: 'recommendation' as const,
-          }] : [])
-        ]
-      };
-    });
-
-    // 2. 새로 생성된 행들을 먼저 추가
-    rows.push(...generatedRowsData);
-
-    // 3. 그 다음에 기존 히스토리 이미지들 추가
-    if (historyImages.length > 0) {
-      // 최신순 정렬
-      const sortedHistoryImages = [...historyImages].sort((a, b) => {
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      });
-      const historyRowsData = sortedHistoryImages.map((historyRow, index) => {
         const items = [
-          // 생성된 이미지 4개
-          ...historyRow.images.filter(img => img.type === 'output').map(img => ({ 
-            type: 'output' as const, 
-            data: img
-          })),
-          // 레퍼런스 이미지 1개
-          ...historyRow.images.filter(img => img.type === 'recommendation').map(img => ({ 
+          ...outputImages.map(img => ({ type: 'output' as const, data: img})),
+          ...(genRow.recommendationImage ? [{
             type: 'recommendation' as const, 
-            data: img
-          })),
-          // 키워드
-          { type: 'keyword' as const, data: historyRow.keyword }
+            data: { 
+              id: Date.now() + 9999 + index, 
+              src: genRow.recommendationImage, 
+              isPinned: false, 
+              type: 'recommendation' as const 
+            }
+          }] : []),
+          { type: 'keyword' as const, data: keyword }
         ];
 
-        // generatedRows와 겹치지 않도록 다른 seed 사용
-        const shuffledItems = isClient ? shuffleArray(items, (index + 10000) * 1000) : items;
+        const shuffledItems = isClient ? shuffleArray(items, index * 1000) : items;
         
         return {
           items: shuffledItems,
-          allImages: historyRow.images,
-          historyData: historyRow // 히스토리 데이터 추가
+          allImages: [
+            ...outputImages,
+            ...(genRow.recommendationImage ? [{
+              id: Date.now() + 9999 + index,
+              src: genRow.recommendationImage,
+              isPinned: false,
+              type: 'recommendation' as const,
+            }] : [])
+          ]
         };
       });
 
-      // 히스토리 행들 추가
-      rows.push(...historyRowsData);
+      // 2. 새로 생성된 행들을 먼저 추가
+      rows.push(...generatedRowsData);
+
+      // 3. 그 다음에 기존 히스토리 이미지들 추가
+      if (historyImages.length > 0) {
+        // 최신순 정렬
+        const sortedHistoryImages = [...historyImages].sort((a, b) => {
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
+        const historyRowsData = sortedHistoryImages.map((historyRow, index) => {
+
+          // 🎯 세션 기반 랜덤 키워드 선택
+          const randomKeyword = getRandomKeywordWithSessionSeed(
+            historyRow.keywords, 
+            historyRow.recordId, 
+            historyRow.keyword // fallback으로 기본 키워드 사용
+          );
+
+          const items = [
+            // 생성된 이미지 4개
+            ...historyRow.images.filter(img => img.type === 'output').map(img => ({ 
+              type: 'output' as const, 
+              data: img
+            })),
+            // 레퍼런스 이미지 1개
+            ...historyRow.images.filter(img => img.type === 'recommendation').map(img => ({ 
+              type: 'recommendation' as const, 
+              data: img
+            })),
+            // 키워드
+            { type: 'keyword' as const, data: randomKeyword }
+          ];
+
+          // generatedRows와 겹치지 않도록 다른 seed 사용
+          const shuffledItems = isClient ? shuffleArray(items, (index + 10000) * 1000) : items;
+          
+          return {
+            items: shuffledItems,
+            allImages: historyRow.images,
+            historyData: historyRow, // 히스토리 데이터 추가
+            // 🔍 디버깅용: 원본 키워드들과 선택된 키워드 정보
+            originalKeywords: historyRow.keywords,
+            selectedKeyword: randomKeyword
+          };
+        });
+
+        // 히스토리 행들 추가
+        rows.push(...historyRowsData);
+
+        // 🔍 디버깅용 로그 (개발 모드에서만)
+        // if (process.env.NODE_ENV === 'development') {
+        //   console.log('🎲 Random keyword selection results:');
+        //   historyRowsData.forEach((row, index) => {
+        //     console.log(`Row ${index + 1}:`, {
+        //       recordId: row.historyData?.recordId,
+        //       originalKeywords: row.originalKeywords,
+        //       selectedKeyword: row.selectedKeyword
+        //     });
+        //   });
+        // }
+      }
+
+      return rows;
     }
 
-    return rows;
-  }
-
-  if (viewMode === 'room' && selectedRoomId) {
-    // Room 이미지들을 Gallery 형식으로 변환
-    if (roomImagesLoading) {
-      return []; // 로딩 중에는 빈 배열
-    }
-    
-    if (roomImages.length === 0) {
-      return []; // 이미지가 없으면 빈 배열
-    }
-    
-    // Room 이미지들을 6개씩 묶어서 행으로 만들기
-    const rows = [];
-    const imagesPerRow = 6;
-    
-    for (let i = 0; i < roomImages.length; i += imagesPerRow - 1) { // -1은 키워드 공간 확보
-      const rowImages = roomImages.slice(i, i + imagesPerRow - 1);
+    if (viewMode === 'room' && selectedRoomId) {
+      // Room 이미지들을 Gallery 형식으로 변환
+      if (roomImagesLoading) {
+        return []; // 로딩 중에는 빈 배열
+      }
       
-      const items = [
-        ...rowImages.map((roomImg, index) => ({ 
-          type: 'output' as const, 
-          data: {
+      if (roomImages.length === 0) {
+        return []; // 이미지가 없으면 빈 배열
+      }
+      
+      // Room 이미지들을 6개씩 묶어서 행으로 만들기
+      const rows = [];
+      const imagesPerRow = 6;
+      
+      for (let i = 0; i < roomImages.length; i += imagesPerRow - 1) { // -1은 키워드 공간 확보
+        const rowImages = roomImages.slice(i, i + imagesPerRow - 1);
+        
+        const items = [
+          ...rowImages.map((roomImg, index) => ({ 
+            type: 'output' as const, 
+            data: {
+              id: Date.now() + i + index,
+              src: roomImg.url,
+              isPinned: false,
+              type: 'output' as const,
+              imageId: roomImg.image_id,
+              roomImageId: roomImg.room_image_id // Room에서 삭제할 때 필요
+            }
+          })),
+          { type: 'keyword' as const, data: 'Room Images' }
+        ];
+        
+        rows.push({
+          items,
+          allImages: rowImages.map((roomImg, index) => ({
             id: Date.now() + i + index,
             src: roomImg.url,
             isPinned: false,
             type: 'output' as const,
             imageId: roomImg.image_id,
-            roomImageId: roomImg.room_image_id // Room에서 삭제할 때 필요
-          }
-        })),
-        { type: 'keyword' as const, data: 'Room Images' }
-      ];
+            roomImageId: roomImg.room_image_id
+          }))
+        });
+      }
       
-      rows.push({
-        items,
-        allImages: rowImages.map((roomImg, index) => ({
-          id: Date.now() + i + index,
-          src: roomImg.url,
-          isPinned: false,
-          type: 'output' as const,
-          imageId: roomImg.image_id,
-          roomImageId: roomImg.room_image_id
-        }))
-      });
+      return rows;
     }
     
-    return rows;
-  }
-  
-  return [];
-};
+    return [];
+  };
   
   // const createDefaultRow = (rowIndex: number) => {
   //   const outputImages = dummyImages.outputs.slice(rowIndex * 4, (rowIndex + 1) * 4);
@@ -417,11 +469,13 @@ const getDisplayRows = () => {
                       onDragStart={(e) => handleImageDragStart(e, image.src)}
                       onClick={() => handleRowClick(rowIndex, image.id)}
                     >
-                      <div className="aspect-square bg-gray-200 overflow-hidden">
-                        <img
+                      <div className="aspect-square bg-gray-200 overflow-hidden relative">
+                        <Image
                           src={image.src}
                           alt=""
-                          className="w-full h-full object-cover hover:scale-105 transition-transform"
+                          fill
+                          className="object-cover hover:scale-105 transition-transform"
+                          sizes="(max-width: 768px) 50vw, 20vw"
                         />
                       </div>
                       
@@ -468,11 +522,13 @@ const getDisplayRows = () => {
                       onDragStart={(e) => handleImageDragStart(e, image.src)}
                       onClick={() => handleRowClick(rowIndex, image.id)}
                     >
-                      <div className="aspect-square bg-gray-200 overflow-hidden">
-                        <img
+                      <div className="aspect-square bg-gray-200 overflow-hidden relative">
+                        <Image
                           src={image.src}
                           alt=""
-                          className="w-full h-full object-cover hover:scale-105 transition-transform"
+                          fill
+                          className="object-cover hover:scale-105 transition-transform"
+                          sizes="(max-width: 768px) 50vw, 20vw"
                         />
                       </div>
                       

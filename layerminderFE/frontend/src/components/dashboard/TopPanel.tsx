@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import React from 'react';
+import Image from 'next/image';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 interface TopPanelProps {
@@ -56,10 +57,13 @@ export default function TopPanel({
     <div className="grid grid-cols-6 gap-2" style={{ height: containerHeight }}>
       {/* 브랜드 이미지 */}
       <div className="col-span-2 flex items-start justify-center">
-        <img 
-          src="/images/layminder.png" 
-          alt="Layer Minder Brand" 
+        <Image
+          src="/images/layminder.png"
+          alt="Layer Minder Logo"
+          width={400}
+          height={400}
           className="w-full h-auto object-contain"
+          priority
         />
       </div>
 
@@ -123,11 +127,6 @@ export default function TopPanel({
       ? animationState.animatedKeywords
       : selectedRowData?.generatedKeywords || [];
 
-    // // 추천 이미지 표시 여부
-    // const showRecommendation = isGenerating 
-    //   ? animationState?.recommendationVisible || false
-    //   : !!selectedRowData?.recommendationImage;
-
     const currentImage = displayImages[currentImageIndex] || displayImages[0];
     const keyword = selectedRowData?.keyword || 'Generated';
 
@@ -163,10 +162,12 @@ export default function TopPanel({
             }}
             onClick={handleImageClick}
           >
-            <img 
+            <Image
               src={currentImage.src} 
               alt="" 
-              className="w-full h-full object-cover cursor-pointer"
+              fill
+              className="object-cover cursor-pointer"
+              sizes="(max-width: 768px) 100vw, 50vw"
             />
             
             {/* 네비게이션 버튼들 */}
@@ -199,10 +200,12 @@ export default function TopPanel({
           {/* 기본 이미지 영역 */}
           <div className="col-span-2 relative group cursor-pointer" onClick={handleImageClick}>
             <div className="aspect-square bg-gray-200 overflow-hidden">
-              <img 
+              <Image
                 src={currentImage.src} 
                 alt="" 
-                className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                fill
+                className="object-cover transition-transform group-hover:scale-105"
+                sizes="(max-width: 768px) 50vw, 25vw"
               />
             </div>
             
@@ -322,11 +325,13 @@ export default function TopPanel({
         <div className="col-span-2 relative">
           {displayImages.length > 0 && currentImage ? (
             <div className="group cursor-pointer" onClick={handleImageClick}>
-              <div className="aspect-square bg-gray-200 overflow-hidden">
-                <img 
+              <div className="aspect-square bg-gray-200 overflow-hidden relative">
+                <Image
                   src={currentImage.src} 
                   alt="" 
-                  className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                  fill
+                  className="object-cover transition-transform group-hover:scale-105"
+                  sizes="(max-width: 768px) 50vw, 25vw"
                 />
               </div>
               
@@ -472,10 +477,12 @@ export default function TopPanel({
             }}
             onClick={handleImageClick}
           >
-            <img 
+            <Image 
               src={currentImage.src} 
               alt="" 
-              className="w-full h-full object-cover cursor-pointer"
+              fill
+              className="object-cover cursor-pointer"
+              sizes="(max-width: 768px) 100vw, 50vw"
             />
             
             {/* 네비게이션 버튼들 */}
@@ -508,10 +515,12 @@ export default function TopPanel({
           {/* 기본 이미지 영역 */}
           <div className="col-span-2 relative group cursor-pointer" onClick={handleImageClick}>
             <div className="aspect-square bg-gray-200 overflow-hidden">
-              <img 
+              <Image 
                 src={currentImage.src} 
                 alt="" 
-                className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                fill
+                className="object-cover transition-transform group-hover:scale-105"
+                sizes="(max-width: 768px) 50vw, 25vw"
               />
             </div>
             
@@ -597,10 +606,12 @@ export default function TopPanel({
         {/* 이미지 영역 */}
         <div className="col-span-2 relative group cursor-pointer" onClick={handleImageClick}>
           <div className="aspect-square bg-gray-200 overflow-hidden">
-            <img 
+            <Image 
               src={currentImage.src} 
               alt="" 
-              className="w-full h-full object-cover transition-transform group-hover:scale-105"
+              fill
+              className="object-cover transition-transform group-hover:scale-105"
+              sizes="(max-width: 768px) 50vw, 25vw"
             />
           </div>
           
