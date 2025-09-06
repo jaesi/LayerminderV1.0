@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, createContext, useContext, ReactNode } from 'react'
+import React, { useState, useEffect, createContext, useContext, ReactNode, useRef } from 'react'
 import { User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
@@ -40,23 +40,38 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
-  // 백엔드에서 프로필 정보 가져오기
-  const fetchProfile = async (forceRefresh = false) => {
+  // 프로필 로드 상태 추적용 ref
+  const profileLoadComplete = useRef(false)
+  const isLoadingProfile = useRef(false)
+
+  const loadProfileOnce = async () => {
+    // 이미 로드했거나 로딩 중이거나 사용자가 없으면 스킵
+    if (profileLoadComplete.current || isLoadingProfile.current || !user) {
+      return
+    }
+
+    isLoadingProfile.current = true
+    
     try {
-      if (!user && !forceRefresh) return
-      
+      console.log('🔄 Fetching profile from backend - ONCE ONLY');
       const profileData = await getProfileFromBackend()
       if (profileData) {
         setProfile(profileData)
+        profileLoadComplete.current = true
         console.log('✅ Profile loaded from backend:', profileData.email)
       }
     } catch (error) {
       console.error('Failed to fetch profile:', error)
+    } finally {
+      isLoadingProfile.current = false
     }
   }
 
+  // 수동 새로고침용 함수
   const refreshProfile = async () => {
-    await fetchProfile(true)
+    profileLoadComplete.current = false // 강제로 다시 로드 허용
+    isLoadingProfile.current = false
+    await loadProfileOnce()
   }
 
   useEffect(() => {
@@ -67,8 +82,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(session?.user ?? null)
         
         // 사용자가 있으면 백엔드에서 프로필 정보 가져오기
-        if (session?.user) {
-          await fetchProfile(true)
+        if (session?.user && !profileLoadComplete.current) {
+          await loadProfileOnce()
         }
       } catch (error) {
         console.error('Error getting session:', error)
@@ -88,20 +103,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         if (event === 'SIGNED_IN' && session) {
           // 로그인 성공 시 백엔드에서 프로필 정보 가져오기
-          await fetchProfile(true)
+          await loadProfileOnce()
           router.push('/dashboard')
         }
         
         if (event === 'SIGNED_OUT') {
           // 로그아웃 시 프로필 정보 초기화
           setProfile(null)
+          profileLoadComplete.current = false
           router.push('/')
         }
 
         if (event === 'TOKEN_REFRESHED' && session) {
           // 토큰 갱신 시 프로필 정보 새로고침
           console.log('Token refreshed, updating profile...')
-          await fetchProfile(true)
         }
       }
     )
@@ -111,12 +126,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, [router])
 
-  // 사용자 변경 시 프로필 정보 가져오기
   useEffect(() => {
-    if (user && !profile) {
-      fetchProfile()
+    if (user && !profileLoadComplete.current && !isLoadingProfile.current) {
+      loadProfileOnce()
     }
-  }, [user, profile])
+  }, [user]) 
 
   const handleSignOut = async (): Promise<void> => {
     try {
