@@ -15,6 +15,7 @@ from routers.streaming import router as streaming_router
 from routers.layerroom import router as layer_room_router
 from routers.layerroom_image import router as layer_room_image_router
 from routers.image_view import router as image_view_router
+
 app = FastAPI(title="LayerMinder API v1.0")
 
 # Security scheme
@@ -75,4 +76,4 @@ def custom_openapi():
 app.openapi = custom_openapi
 
 if __name__ == "__main__":
-    uvicorn.run("run:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("run:app", host="0.0.0.0", port=8000, reload=False)
