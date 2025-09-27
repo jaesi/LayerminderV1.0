@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.security import HTTPBearer
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
-import uvicorn
+import uvicorn, os
 
 from core.config import settings
 
@@ -30,10 +30,20 @@ app.include_router(streaming_router, prefix="/api/v1")
 app.include_router(layer_room_router, prefix="/api/v1")
 app.include_router(layer_room_image_router, prefix="/api/v1")
 
+
+# CORS setting
+ALLOWED_ORIGINS = [
+    "http://localhost:7777",
+    "http://localhost:3000", 
+    "https://layerminder.com",
+    "https://www.layerminder.com",
+    "https://layerminder-v1-0-3tt6.vercel.app",
+]
+
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:7777"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
