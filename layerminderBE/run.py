@@ -15,13 +15,14 @@ from routers.streaming import router as streaming_router
 from routers.layerroom import router as layer_room_router
 from routers.layerroom_image import router as layer_room_image_router
 from routers.image_view import router as image_view_router
+from routers.credits import router as credits_router
 
 app = FastAPI(title="LayerMinder API v1.0")
 
 # Security scheme
 bearer_scheme = HTTPBearer(bearerFormat="JWT", scheme_name="bearerAuth")
 
-# router setting 
+# router setting
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(history_router, prefix="/api/v1")
 app.include_router(image_meta_router, prefix="/api/v1")
@@ -30,6 +31,7 @@ app.include_router(generation_router, prefix="/api/v1")
 app.include_router(streaming_router, prefix="/api/v1")
 app.include_router(layer_room_router, prefix="/api/v1")
 app.include_router(layer_room_image_router, prefix="/api/v1")
+app.include_router(credits_router, prefix="/api/v1")
 
 
 # CORS setting
