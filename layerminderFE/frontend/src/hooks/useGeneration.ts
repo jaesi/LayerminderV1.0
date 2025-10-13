@@ -524,14 +524,21 @@ export function useGeneration(options: UseGenerationOptions = {}) {
         const urlObj = new URL(item.originalUrl);
         // "https://uscwuogmxxaxwvfueasr.supabase.co/storage/v1/object/public/layerminder/generated/user_id/filename.jpeg?"
         // → "generated/user_id/filename.jpeg"
+        // 레퍼런스 웨어하우스 버킷 주소 js 10.13 추가
+        // "https://uscwuogmxxaxwvfueasr.supabase.co/storage/v1/object/public/layerminder-warehouse/reference/filename.jpg"
+        // → "reference/filename.jpg"
         const pathParts = urlObj.pathname.split('/');
-        const bucketIndex = pathParts.findIndex(part => part === 'layerminder');
-        
+
+        // 'layerminder' 또는 'layerminder-warehouse' 버킷 찾기
+        const bucketIndex = pathParts.findIndex(part =>
+          part === 'layerminder' || part === 'layerminder-warehouse'
+        );
+
         if (bucketIndex !== -1 && bucketIndex < pathParts.length - 1) {
           const fileKey = pathParts.slice(bucketIndex + 1).join('/').replace(/\?$/, ''); // 끝의 ? 제거
-          
+
           console.log('🔑 Gallery 이미지 파일 키 추출:', fileKey);
-          
+
           return {
             fileKey: fileKey,
             publicUrl: item.originalUrl,
@@ -540,7 +547,7 @@ export function useGeneration(options: UseGenerationOptions = {}) {
         } else {
           throw new Error('Invalid Supabase URL format');
         }
-        
+
       } catch (error) {
         console.error('❌ Gallery 이미지 URL 파싱 실패:', error);
         throw new Error(`Gallery image processing failed: ${item.originalUrl}`);

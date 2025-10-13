@@ -199,7 +199,9 @@ const handleDrop = async (e: React.DragEvent) => {
     
     try {
       // Supabase Storage URL인지 확인
-      const isSupabaseUrl = imageSrc.includes('supabase.co/storage/v1/object/public/layerminder');
+      const isSupabaseUrl = imageSrc.includes('supabase.co/storage/v1/object/public/layerminder')
+      // Supabase의 레퍼런스 버킷 URL - 10.13 js 추가
+      || imageSrc.includes('supabase.co/storage/v1/object/public/layerminder-warehouse');
       
       if (isSupabaseUrl) {
         console.log('📋 Supabase Storage 이미지 감지 - 기존 정보 재사용');

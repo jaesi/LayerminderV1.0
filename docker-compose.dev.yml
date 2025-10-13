@@ -2,7 +2,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     container_name: layerminder-dev
     ports:
       - "8000:8000"

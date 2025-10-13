@@ -10,6 +10,7 @@ from core.config import settings
 
 # 1. load env variables
 STORAGE_BUCKET = settings.SUPABASE_STORAGE_BUCKET
+REFERENCE_STORAGE_BUCKET = settings.REFERENCE_STORAGE_BUCKET
 OPENAI_API_KEY = settings.OPENAI_API_KEY
 OPENAI_MODEL = "gpt-image-1"
 
@@ -20,7 +21,15 @@ client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 async def _fetch_fileobject(file_key:str) -> BytesIO:
     clean_key = file_key.lstrip("/").split("?", 1)[0]
     base = settings.SUPABASE_URL.rstrip("/")  # e.g. https://uscw…supabase.co
-    url = f"{base}/storage/v1/object/public/{STORAGE_BUCKET}/{clean_key}"
+
+    # Determine bucket based on file_key prefix
+    # Reference images start with "reference/"
+    if clean_key.startswith("reference/"):
+        bucket = REFERENCE_STORAGE_BUCKET
+    else:
+        bucket = STORAGE_BUCKET
+
+    url = f"{base}/storage/v1/object/public/{bucket}/{clean_key}"
 
     async with httpx.AsyncClient() as client:
         r = await client.get(url)
